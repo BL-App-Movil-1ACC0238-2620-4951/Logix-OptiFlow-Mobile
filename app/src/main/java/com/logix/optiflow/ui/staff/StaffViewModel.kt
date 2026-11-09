@@ -22,9 +22,6 @@ import java.time.Period
 import java.util.Locale
 import java.util.UUID
 import java.time.YearMonth
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -35,7 +32,7 @@ data class StaffUiState(
     val patients: List<StaffPatient> = DemoData.staffPatients,
     val patientsFromApi: Boolean = false,
     val newPatientsThisMonth: Int = 0,
-    val patientsWithRecords: Set<String> = emptySet(),
+    val patientsWithRecords: Long = 0,
     val workshopPatientIds: Set<String> = emptySet(),
     val agenda: List<AgendaItem> = DemoData.agenda,
     val agendaFromApi: Boolean = false,
@@ -83,21 +80,12 @@ class StaffViewModel(
                         newPatientsThisMonth = newThisMonth,
                     )
                 }
-                val withRecords = patientsWithClinicalRecords(patients)
-                _uiState.update { it.copy(patientsWithRecords = withRecords) }
+                runCatching { api.getClinicalRecordsSummary() }.onSuccess { summary ->
+                    _uiState.update { it.copy(patientsWithRecords = summary.patientsWithRecords) }
+                }
             }
         }
     }
-
-    /** No hay una ruta con todas las fichas, así que se consulta la de cada paciente en paralelo. */
-    private suspend fun patientsWithClinicalRecords(patients: List<PatientDto>): Set<String> =
-        coroutineScope {
-            patients
-                .map { p -> async { p.id.toString().takeIf { runCatching { api.getPatientClinicalRecords(p.id).isNotEmpty() }.getOrDefault(false) } } }
-                .awaitAll()
-                .filterNotNull()
-                .toSet()
-        }
 
     private suspend fun patientName(id: UUID): String =
         patientNames[id]

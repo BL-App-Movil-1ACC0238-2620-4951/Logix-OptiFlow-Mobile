@@ -12,6 +12,7 @@ import com.logix.optiflow.data.remote.dto.UpdateAppointmentStatusRequest
 import com.logix.optiflow.data.remote.dto.TimeSlotDto
 import com.logix.optiflow.data.remote.dto.WorkOrderDto
 import com.logix.optiflow.data.remote.dto.ClinicalRecordDto
+import com.logix.optiflow.data.remote.dto.ClinicalRecordsSummaryDto
 import java.util.UUID
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -91,6 +92,9 @@ interface SearchBookingApi {
     suspend fun getWorkOrders(
         @Query("status") status: String? = null,
     ): List<WorkOrderDto>
+
+    @GET("clinical-records/summary")
+    suspend fun getClinicalRecordsSummary(): ClinicalRecordsSummaryDto
 
     @GET("patients/{patientId}/clinical-records")
     suspend fun getPatientClinicalRecords(

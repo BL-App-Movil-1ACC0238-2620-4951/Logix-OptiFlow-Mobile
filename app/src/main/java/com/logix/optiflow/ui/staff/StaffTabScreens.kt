@@ -364,7 +364,7 @@ fun StaffPatientsScreen(nav: NavController) {
             Row {
                 StatColumn(if (live) state.patients.size.toString() else "1.248", "Total pacientes", White, Modifier.weight(1f))
                 StatColumn(if (live) state.newPatientsThisMonth.toString() else "34", "Nuevos este mes", Color(0xFF34D399), Modifier.weight(1f))
-                StatColumn(if (live) state.patientsWithRecords.size.toString() else "890", "Con ficha vigente", White, Modifier.weight(1f))
+                StatColumn(if (live) state.patientsWithRecords.toString() else "890", "Con ficha vigente", White, Modifier.weight(1f))
             }
         }
         VSpace(16.dp)
