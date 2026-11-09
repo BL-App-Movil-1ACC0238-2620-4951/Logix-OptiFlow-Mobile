@@ -187,9 +187,13 @@ private val agendaFilters =
 fun StaffAgendaScreen(nav: NavController) {
     var filter by rememberSaveable { mutableIntStateOf(0) }
     var day by rememberSaveable { mutableIntStateOf(2) }
-    val waiting = DemoData.agenda.filter { it.status == AgendaStatus.WAITING }
+    val vm = staffViewModel()
+    val state by vm.uiState.collectAsState()
+    val agenda = state.agenda
+    val waiting = agenda.filter { it.status == AgendaStatus.WAITING }
+    val done = agenda.count { it.status == AgendaStatus.DONE }
     val predicate = agendaFilters[filter].second
-    val next = DemoData.agenda.filter { it.status != AgendaStatus.WAITING && predicate(it) }
+    val next = agenda.filter { it.status != AgendaStatus.WAITING && predicate(it) }
 
     StaffScreen(
         nav = nav,
@@ -209,12 +213,12 @@ fun StaffAgendaScreen(nav: NavController) {
                 Column(Modifier.weight(1f)) {
                     Txt("MIÉRCOLES 20 JUN", 9, color = Slate300, family = Inter, letterSpacing = 1.2.sp)
                     VSpace(8.dp)
-                    Txt("8 pacientes hoy", 20, color = White, family = Inter)
+                    Txt("${agenda.size} pacientes hoy", 20, color = White, family = Inter)
                     VSpace(8.dp)
-                    Txt("2 consultas completadas · 1 en sala de espera", 11, color = Slate300, family = Inter)
+                    Txt("$done consultas completadas · ${waiting.size} en sala de espera", 11, color = Slate300, family = Inter)
                 }
                 Box(Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(StaffChip), contentAlignment = Alignment.Center) {
-                    Txt("8", 13, color = StaffHeader, family = Inter)
+                    Txt("${agenda.size}", 13, color = StaffHeader, family = Inter)
                 }
             }
         }
@@ -240,7 +244,7 @@ fun StaffAgendaScreen(nav: NavController) {
         VSpace(14.dp)
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             agendaFilters.forEachIndexed { index, (label, pred) ->
-                StaffChip("$label (${DemoData.agenda.count(pred)})", filter == index) { filter = index }
+                StaffChip("$label (${agenda.count(pred)})", filter == index) { filter = index }
             }
         }
         if (filter != 0) {
@@ -258,7 +262,7 @@ fun StaffAgendaScreen(nav: NavController) {
             waiting.forEach { item ->
                 Column(Modifier.fillMaxWidth().staffCard().padding(14.dp)) {
                     Row(Modifier.tap { nav.navigate(Routes.staffPatient(item.patientId)) }, verticalAlignment = Alignment.CenterVertically) {
-                        StaffInitials(DemoData.staffPatient(item.patientId).initials)
+                        StaffInitials(initialsOf(item.name))
                         HSpace(12.dp)
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             StaffPill("En sala · hace 10 min", icon = R.drawable.lucide_ic_clock)
@@ -289,6 +293,9 @@ fun StaffAgendaScreen(nav: NavController) {
         VSpace(90.dp)
     }
 }
+
+private fun initialsOf(name: String): String =
+    name.split(' ').filter { it.isNotBlank() }.take(2).joinToString("") { it.first().uppercase() }
 
 @Composable
 private fun AgendaRow(item: AgendaItem, onClick: () -> Unit) {
@@ -322,9 +329,16 @@ fun StaffPatientsScreen(nav: NavController) {
     val state by vm.uiState.collectAsState()
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableIntStateOf(0) }
+    val live = state.patientsFromApi
+    // "En atención" son los pacientes de la sala de espera de hoy y "En taller" los que tienen una orden sin entregar.
+    val waitingIds =
+        if (state.agendaFromApi) state.agenda.filter { it.status == AgendaStatus.WAITING }.map { it.patientId }.toSet() else emptySet()
     val patients =
         state.patients.filter {
-            query.isBlank() || it.fullName.contains(query, true) || it.rut.contains(query) || it.phone.contains(query)
+            !live || filter == 0 || (filter == 1 && it.id in waitingIds) || (filter == 2 && it.id in state.workshopPatientIds)
+        }.filter {
+            query.isBlank() || it.fullName.contains(query, true) || it.rut.contains(query) || it.phone.contains(query) ||
+                it.email.contains(query, true)
         }
 
     StaffScreen(
@@ -348,16 +362,26 @@ fun StaffPatientsScreen(nav: NavController) {
             Txt("Fichas optométricas, recetas y seguimientos al día.", 11, color = Slate300, family = Inter)
             VSpace(22.dp)
             Row {
-                StatColumn("1.248", "Total pacientes", White, Modifier.weight(1f))
-                StatColumn("34", "Nuevos este mes", Color(0xFF34D399), Modifier.weight(1f))
-                StatColumn("890", "Con ficha vigente", White, Modifier.weight(1f))
+                StatColumn(if (live) state.patients.size.toString() else "1.248", "Total pacientes", White, Modifier.weight(1f))
+                StatColumn(if (live) state.newPatientsThisMonth.toString() else "34", "Nuevos este mes", Color(0xFF34D399), Modifier.weight(1f))
+                StatColumn(if (live) state.patientsWithRecords.toString() else "890", "Con ficha vigente", White, Modifier.weight(1f))
             }
         }
         VSpace(16.dp)
-        SearchField(query, { query = it }, "Buscar por nombre, RUT o teléfono")
+        SearchField(query, { query = it }, if (live) "Buscar por nombre, correo o teléfono" else "Buscar por nombre, RUT o teléfono")
         VSpace(12.dp)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Todos (1.248)", "En atención (1)", "En taller (12)").forEachIndexed { index, label ->
+            (
+                if (live) {
+                    listOf(
+                        "Todos (${state.patients.size})",
+                        "En atención (${state.patients.count { it.id in waitingIds }})",
+                        "En taller (${state.patients.count { it.id in state.workshopPatientIds }})",
+                    )
+                } else {
+                    listOf("Todos (1.248)", "En atención (1)", "En taller (12)")
+                }
+            ).forEachIndexed { index, label ->
                 StaffChip(label, filter == index) { filter = index }
             }
         }
@@ -374,7 +398,7 @@ fun StaffPatientsScreen(nav: NavController) {
                 HSpace(16.dp)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Txt(patient.name, 14, color = StaffInk, family = Inter)
-                    Txt(patient.rut, 11, color = Slate400, family = Inter)
+                    Txt(patient.email.ifBlank { patient.rut }, 11, color = Slate400, family = Inter)
                     Txt(patient.note, 11, color = Slate400, family = Inter)
                 }
                 LIcon(R.drawable.lucide_ic_chevron_right, StaffInk, 20.dp)

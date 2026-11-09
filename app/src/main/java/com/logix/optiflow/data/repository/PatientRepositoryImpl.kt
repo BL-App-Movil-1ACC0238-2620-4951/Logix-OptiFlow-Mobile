@@ -2,6 +2,7 @@ package com.logix.optiflow.data.repository
 
 import com.logix.optiflow.data.local.PatientSessionStore
 import com.logix.optiflow.data.mapper.toDomain
+import com.logix.optiflow.data.remote.AuthTokenHolder
 import com.logix.optiflow.data.remote.api.SearchBookingApi
 import com.logix.optiflow.data.remote.dto.LoginRequest
 import com.logix.optiflow.data.remote.dto.RegisterPatientRequest
@@ -46,22 +47,39 @@ class PatientRepositoryImpl(
     override suspend fun login(
         email: String,
         password: String,
-    ): Patient =
+    ): PatientSession =
         withContext(Dispatchers.IO) {
             val response = api.login(LoginRequest(email = email, password = password))
-            val patient = response.patient.toDomain()
+            AuthTokenHolder.token = response.token
+            val profile =
+                if (response.role == PatientSession.PATIENT_ROLE) {
+                    api.getPatient(response.userId).toDomain()
+                } else {
+                    null
+                }
+            val session =
+                PatientSession(
+                    patientId = response.userId,
+                    token = response.token,
+                    name = profile?.name.orEmpty(),
+                    email = profile?.email ?: email,
+                    role = response.role,
+                )
             sessionStore.save(
-                patientId = patient.id,
-                name = patient.name,
-                email = patient.email,
-                token = response.token,
+                patientId = session.patientId,
+                name = session.name,
+                email = session.email,
+                token = session.token,
+                role = session.role,
             )
-            patient
+            session
         }
 
-    override suspend fun getSession(): PatientSession? = sessionStore.read()
+    override suspend fun getSession(): PatientSession? =
+        sessionStore.read().also { AuthTokenHolder.token = it?.token }
 
     override suspend fun clearSession() {
+        AuthTokenHolder.token = null
         sessionStore.clear()
     }
 }

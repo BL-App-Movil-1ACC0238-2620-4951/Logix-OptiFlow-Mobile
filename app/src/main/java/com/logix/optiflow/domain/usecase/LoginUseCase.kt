@@ -1,13 +1,13 @@
 package com.logix.optiflow.domain.usecase
 
-import com.logix.optiflow.domain.model.Patient
+import com.logix.optiflow.domain.model.PatientSession
 import com.logix.optiflow.domain.repository.PatientRepository
 
-class LoginPatientUseCase(
+class LoginUseCase(
     private val repository: PatientRepository,
 ) {
     suspend operator fun invoke(
         email: String,
         password: String,
-    ): Patient = repository.login(email, password)
+    ): PatientSession = repository.login(email, password)
 }

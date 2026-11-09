@@ -25,11 +25,13 @@ class PatientSessionStore(
         name: String,
         email: String,
         token: String?,
+        role: String = PatientSession.PATIENT_ROLE,
     ) {
         dataStore.edit { preferences ->
             preferences[Keys.PATIENT_ID] = patientId.toString()
             preferences[Keys.PATIENT_NAME] = name
             preferences[Keys.PATIENT_EMAIL] = email
+            preferences[Keys.ROLE] = role
             if (token.isNullOrBlank()) {
                 preferences.remove(Keys.TOKEN)
             } else {
@@ -46,6 +48,7 @@ class PatientSessionStore(
             token = snapshot[Keys.TOKEN],
             name = snapshot[Keys.PATIENT_NAME].orEmpty(),
             email = snapshot[Keys.PATIENT_EMAIL].orEmpty(),
+            role = snapshot[Keys.ROLE] ?: PatientSession.PATIENT_ROLE,
         )
     }
 
@@ -61,6 +64,7 @@ class PatientSessionStore(
                 token = snapshot[Keys.TOKEN],
                 name = snapshot[Keys.PATIENT_NAME].orEmpty(),
                 email = snapshot[Keys.PATIENT_EMAIL].orEmpty(),
+                role = snapshot[Keys.ROLE] ?: PatientSession.PATIENT_ROLE,
             )
         }
 
@@ -69,5 +73,6 @@ class PatientSessionStore(
         val TOKEN = stringPreferencesKey("token")
         val PATIENT_NAME = stringPreferencesKey("patient_name")
         val PATIENT_EMAIL = stringPreferencesKey("patient_email")
+        val ROLE = stringPreferencesKey("role")
     }
 }

@@ -33,6 +33,7 @@ data class StaffPatient(
     val lastVisit: String,
     val ficha: String,
     val age: Int,
+    val email: String = "",
 )
 
 enum class AgendaStatus { WAITING, CONFIRMED, PENDING, PICKUP, DONE }

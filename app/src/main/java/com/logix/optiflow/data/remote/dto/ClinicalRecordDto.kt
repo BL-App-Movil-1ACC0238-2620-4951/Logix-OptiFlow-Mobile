@@ -3,6 +3,10 @@ package com.logix.optiflow.data.remote.dto
 import java.time.Instant
 import java.util.UUID
 
+data class ClinicalRecordsSummaryDto(
+    val patientsWithRecords: Long,
+)
+
 data class ClinicalRecordDto(
     val id: UUID,
     val patientId: UUID?,

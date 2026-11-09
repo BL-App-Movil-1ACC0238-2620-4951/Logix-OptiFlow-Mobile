@@ -19,7 +19,7 @@ import com.logix.optiflow.domain.usecase.SearchOpticalStoresUseCase
 import com.logix.optiflow.domain.usecase.GetPatientSessionUseCase
 import com.logix.optiflow.domain.usecase.GetPatientAppointmentsUseCase
 import com.logix.optiflow.domain.usecase.GetStoreAvailabilityUseCase
-import com.logix.optiflow.domain.usecase.LoginPatientUseCase
+import com.logix.optiflow.domain.usecase.LoginUseCase
 import com.logix.optiflow.domain.usecase.RegisterPatientUseCase
 
 object SearchBookingModule {
@@ -66,8 +66,8 @@ object SearchBookingModule {
         RegisterPatientUseCase(patientRepository)
     }
 
-    val loginPatientUseCase: LoginPatientUseCase by lazy {
-        LoginPatientUseCase(patientRepository)
+    val loginUseCase: LoginUseCase by lazy {
+        LoginUseCase(patientRepository)
     }
 
     val getPatientSessionUseCase: GetPatientSessionUseCase by lazy {

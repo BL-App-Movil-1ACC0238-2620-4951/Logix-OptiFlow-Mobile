@@ -35,7 +35,7 @@ object ViewModelFactories {
         simpleFactory {
             AuthViewModel(
                 registerPatient = SearchBookingModule.registerPatientUseCase,
-                loginPatient = SearchBookingModule.loginPatientUseCase,
+                login = SearchBookingModule.loginUseCase,
                 getPatientSession = SearchBookingModule.getPatientSessionUseCase,
             )
         }
@@ -51,7 +51,12 @@ object ViewModelFactories {
         }
 
     val staff: ViewModelProvider.Factory =
-        simpleFactory { StaffViewModel(api = ApiClient.searchBookingApi) }
+        simpleFactory {
+            StaffViewModel(
+                api = ApiClient.searchBookingApi,
+                getSession = SearchBookingModule.getPatientSessionUseCase,
+            )
+        }
 
     fun booking(storeId: UUID?): ViewModelProvider.Factory =
         simpleFactory {

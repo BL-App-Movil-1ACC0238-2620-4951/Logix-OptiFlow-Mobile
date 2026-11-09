@@ -9,6 +9,10 @@ data class BookAppointmentRequest(
     val timeSlotId: UUID,
 )
 
+data class UpdateAppointmentStatusRequest(
+    val status: String,
+)
+
 data class AppointmentListResponse(
     val value: List<AppointmentDto>?,
 )

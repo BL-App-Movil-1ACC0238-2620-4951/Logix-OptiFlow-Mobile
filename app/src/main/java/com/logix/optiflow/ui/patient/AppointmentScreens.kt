@@ -24,6 +24,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -41,6 +42,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.logix.optiflow.R
+import com.logix.optiflow.data.remote.dto.TimeSlotDto
 import com.logix.optiflow.ui.components.Divider
 import com.logix.optiflow.ui.components.HSpace
 import com.logix.optiflow.ui.components.IconTile
@@ -322,16 +324,39 @@ private val FieldBorder = Color(0xFFA8BCD9)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RescheduleScreen(nav: NavController, @Suppress("UNUSED_PARAMETER") id: String) {
+fun RescheduleScreen(nav: NavController, id: String) {
     val vm = patientViewModel()
     val state by vm.uiState.collectAsState()
     val context = LocalContext.current
+    val appointment = vm.appointment(id)
+    // Con una cita real y ópticas del API se usan los horarios disponibles; si no, la vista de demostración.
+    val live = appointment?.fromApi == true && state.stores.isNotEmpty()
     var service by remember { mutableIntStateOf(0) }
-    var store by remember { mutableIntStateOf(0) }
+    var store by remember {
+        mutableIntStateOf(state.stores.indexOfFirst { it.id == appointment?.storeId }.coerceAtLeast(0))
+    }
     var time by remember { mutableIntStateOf(1) }
     var date by remember { mutableStateOf<Long?>(null) }
     var showPicker by remember { mutableStateOf(false) }
+    var slots by remember { mutableStateOf<List<TimeSlotDto>>(emptyList()) }
+    var saving by remember { mutableStateOf(false) }
     val storeNames = state.stores.map { it.name }.ifEmpty { listOf("Sucursal Centro", "Sucursal Norte", "Sucursal Providencia") }
+    LaunchedEffect(live, store) {
+        if (live) {
+            slots = vm.availableSlots(state.stores[store.coerceAtMost(state.stores.lastIndex)].id)
+            time = -1
+        }
+    }
+    val chosenDay = date?.let { Instant.ofEpochMilli(it).atZone(ZoneId.of("UTC")).toLocalDate() }
+    LaunchedEffect(chosenDay) { if (live) time = -1 }
+    val daySlots =
+        slots.filter { slot -> chosenDay == null || slot.startDateTime.atZone(ZoneId.systemDefault()).toLocalDate() == chosenDay }
+    val timeLabels =
+        if (live) {
+            daySlots.map { DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault()).format(it.startDateTime) }
+        } else {
+            rescheduleTimes
+        }
 
     PatientScreen(
         nav = nav,
@@ -353,7 +378,10 @@ fun RescheduleScreen(nav: NavController, @Suppress("UNUSED_PARAMETER") id: Strin
                 Dropdown(services, service) { service = it }
                 VSpace(18.dp)
                 FormLabel("Óptica")
-                Dropdown(storeNames, store.coerceAtMost(storeNames.lastIndex)) { store = it }
+                Dropdown(storeNames, store.coerceAtMost(storeNames.lastIndex)) {
+                    store = it
+                    time = -1
+                }
                 VSpace(18.dp)
                 FormLabel("Fecha")
                 Box(
@@ -377,7 +405,11 @@ fun RescheduleScreen(nav: NavController, @Suppress("UNUSED_PARAMETER") id: Strin
                 }
                 VSpace(18.dp)
                 FormLabel("Horarios disponibles")
-                rescheduleTimes.chunked(3).forEachIndexed { row, chunk ->
+                if (live && timeLabels.isEmpty()) {
+                    Txt("No hay horarios disponibles para esta fecha.", 13, color = Slate500)
+                    VSpace(8.dp)
+                }
+                timeLabels.chunked(3).forEachIndexed { row, chunk ->
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         chunk.forEachIndexed { col, label ->
                             val index = row * 3 + col
@@ -415,11 +447,22 @@ fun RescheduleScreen(nav: NavController, @Suppress("UNUSED_PARAMETER") id: Strin
                 SolidButton(
                     text = "Confirmar reserva",
                     onClick = {
-                        if (date == null) {
-                            Toast.makeText(context, "Selecciona una fecha", Toast.LENGTH_SHORT).show()
-                        } else {
-                            Toast.makeText(context, "Solicitud de reprogramación enviada", Toast.LENGTH_SHORT).show()
-                            nav.popBackStack(Routes.P_APPOINTMENTS, inclusive = false)
+                        val slot = daySlots.getOrNull(time)
+                        when {
+                            date == null -> Toast.makeText(context, "Selecciona una fecha", Toast.LENGTH_SHORT).show()
+                            !live -> {
+                                Toast.makeText(context, "Solicitud de reprogramación enviada", Toast.LENGTH_SHORT).show()
+                                nav.popBackStack(Routes.P_APPOINTMENTS, inclusive = false)
+                            }
+                            slot == null -> Toast.makeText(context, "Selecciona un horario", Toast.LENGTH_SHORT).show()
+                            !saving -> {
+                                saving = true
+                                vm.reschedule(id, state.stores[store].id, slot.id) { error ->
+                                    saving = false
+                                    Toast.makeText(context, error ?: "Cita reprogramada", Toast.LENGTH_SHORT).show()
+                                    if (error == null) nav.popBackStack(Routes.P_APPOINTMENTS, inclusive = false)
+                                }
+                            }
                         }
                     },
                     radius = 8.dp,

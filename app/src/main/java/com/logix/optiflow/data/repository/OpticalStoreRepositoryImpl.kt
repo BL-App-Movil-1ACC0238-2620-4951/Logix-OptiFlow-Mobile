@@ -19,8 +19,6 @@ class OpticalStoreRepositoryImpl(
         withContext(Dispatchers.IO) {
             api
                 .listOpticalStores(name = name, address = address)
-                .opticalStores
-                .orEmpty()
                 .map { it.toDomain() }
         }
 
@@ -30,15 +28,17 @@ class OpticalStoreRepositoryImpl(
         minRating: Double?,
     ): OpticalStoreSearchResult =
         withContext(Dispatchers.IO) {
-            val response =
-                api.searchOpticalStores(
-                    name = name,
-                    address = address,
-                    minRating = minRating,
-                )
+            val stores =
+                api
+                    .listOpticalStores(name = name, address = address, minRating = minRating)
+                    .map { it.toDomain() }
             OpticalStoreSearchResult(
-                stores = response.opticalStores.orEmpty().map { it.toDomain() },
-                message = response.message,
+                stores = stores,
+                message = if (stores.isEmpty()) NO_RESULTS_MESSAGE else null,
             )
         }
+
+    private companion object {
+        const val NO_RESULTS_MESSAGE = "No se encontraron ópticas con esos criterios."
+    }
 }
