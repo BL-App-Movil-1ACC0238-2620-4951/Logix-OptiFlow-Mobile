@@ -93,7 +93,7 @@ class BookingViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             val session = runCatching { getPatientSession() }.getOrNull()
-            val apiStores = runCatching { getOpticalStores() }.getOrDefault(emptyList())
+            val apiStores = getOpticalStores().getOrDefault(emptyList())
             val options =
                 if (apiStores.isNotEmpty()) {
                     apiStores.mapIndexed { index, store ->
@@ -143,7 +143,7 @@ class BookingViewModel @Inject constructor(
         _uiState.update { it.copy(step = 2, isLoading = true, errorMessage = null, selectedSlot = null) }
         viewModelScope.launch {
             val apiSlots =
-                store.id?.let { id -> runCatching { getAvailability(id) }.getOrDefault(emptyList()) }.orEmpty()
+                store.id?.let { id -> getAvailability(id).getOrDefault(emptyList()) }.orEmpty()
             val slots = apiSlots.map(::toOption).ifEmpty { demoSlots() }
             val firstDate = slots.minOfOrNull { it.date }
             _uiState.update {
@@ -193,13 +193,13 @@ class BookingViewModel @Inject constructor(
         }
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-            try {
-                bookAppointment(store.id, slot.id)
-                _uiState.update { it.copy(isLoading = false, step = 4) }
-                onBooked()
-            } catch (error: Exception) {
-                _uiState.update { it.copy(isLoading = false, errorMessage = error.toUserMessage()) }
-            }
+            bookAppointment(store.id, slot.id)
+                .onSuccess {
+                    _uiState.update { it.copy(isLoading = false, step = 4) }
+                    onBooked()
+                }.onFailure { error ->
+                    _uiState.update { it.copy(isLoading = false, errorMessage = error.toUserMessage()) }
+                }
         }
     }
 

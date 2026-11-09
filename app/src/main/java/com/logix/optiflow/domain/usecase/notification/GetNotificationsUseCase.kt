@@ -8,6 +8,6 @@ import javax.inject.Inject
 class GetNotificationsUseCase @Inject constructor(
     private val repository: NotificationRepository,
 ) {
-    suspend operator fun invoke(patientId: UUID): List<NotificationItem> =
+    suspend operator fun invoke(patientId: UUID): Result<List<NotificationItem>> =
         repository.loadForPatient(patientId)
 }

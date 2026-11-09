@@ -11,5 +11,5 @@ class SearchOpticalStoresUseCase @Inject constructor(
         name: String? = null,
         address: String? = null,
         minRating: Double? = null,
-    ): OpticalStoreSearchResult = repository.searchOpticalStores(name, address, minRating)
+    ): Result<OpticalStoreSearchResult> = repository.searchOpticalStores(name, address, minRating)
 }

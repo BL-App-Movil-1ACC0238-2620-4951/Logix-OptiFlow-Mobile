@@ -10,5 +10,5 @@ class LoginUseCase @Inject constructor(
     suspend operator fun invoke(
         email: String,
         password: String,
-    ): PatientSession = repository.login(email, password)
+    ): Result<PatientSession> = repository.login(email, password)
 }

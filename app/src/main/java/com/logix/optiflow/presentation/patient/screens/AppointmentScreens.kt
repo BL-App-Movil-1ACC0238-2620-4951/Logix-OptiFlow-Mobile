@@ -42,7 +42,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.logix.optiflow.R
-import com.logix.optiflow.data.remote.dto.searchbooking.TimeSlotDto
+import com.logix.optiflow.domain.model.searchbooking.TimeSlot
 import com.logix.optiflow.presentation.navigation.Routes
 import com.logix.optiflow.presentation.patient.AppointmentStatus
 import com.logix.optiflow.presentation.patient.AppointmentUi
@@ -345,7 +345,7 @@ fun RescheduleScreen(nav: NavController, id: String) {
     var time by remember { mutableIntStateOf(1) }
     var date by remember { mutableStateOf<Long?>(null) }
     var showPicker by remember { mutableStateOf(false) }
-    var slots by remember { mutableStateOf<List<TimeSlotDto>>(emptyList()) }
+    var slots by remember { mutableStateOf<List<TimeSlot>>(emptyList()) }
     var saving by remember { mutableStateOf(false) }
     val storeNames = state.stores.map { it.name }.ifEmpty { listOf("Sucursal Centro", "Sucursal Norte", "Sucursal Providencia") }
     LaunchedEffect(live, store) {

@@ -9,4 +9,6 @@ fun PatientDto.toDomain(): Patient =
         name = name,
         email = email,
         phone = phone,
+        birthDate = birthDate,
+        createdAt = createdAt,
     )

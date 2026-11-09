@@ -8,10 +8,14 @@ import com.logix.optiflow.data.demo.DemoData
 import com.logix.optiflow.data.demo.ProductionOrder
 import com.logix.optiflow.data.demo.ProductionStage
 import com.logix.optiflow.data.demo.StaffPatient
-import com.logix.optiflow.data.remote.api.searchbooking.SearchBookingApi
-import com.logix.optiflow.data.remote.dto.production.WorkOrderDto
-import com.logix.optiflow.data.remote.dto.searchbooking.AppointmentDto
-import com.logix.optiflow.data.remote.dto.searchbooking.PatientDto
+import com.logix.optiflow.domain.model.production.WorkOrder
+import com.logix.optiflow.domain.model.searchbooking.Appointment
+import com.logix.optiflow.domain.model.searchbooking.Patient
+import com.logix.optiflow.domain.repository.clinical.ClinicalRecordRepository
+import com.logix.optiflow.domain.repository.production.WorkOrderRepository
+import com.logix.optiflow.domain.repository.searchbooking.AppointmentRepository
+import com.logix.optiflow.domain.repository.searchbooking.PatientRepository
+import com.logix.optiflow.domain.repository.searchbooking.StaffMemberRepository
 import com.logix.optiflow.domain.usecase.searchbooking.GetPatientSessionUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Duration
@@ -52,7 +56,11 @@ data class StaffUiState(
  */
 @HiltViewModel
 class StaffViewModel @Inject constructor(
-    private val api: SearchBookingApi,
+    private val patientRepository: PatientRepository,
+    private val appointmentRepository: AppointmentRepository,
+    private val staffMemberRepository: StaffMemberRepository,
+    private val workOrderRepository: WorkOrderRepository,
+    private val clinicalRecordRepository: ClinicalRecordRepository,
     private val getSession: GetPatientSessionUseCase,
 ) : ViewModel() {
 
@@ -70,7 +78,7 @@ class StaffViewModel @Inject constructor(
 
     fun refreshPatients() {
         viewModelScope.launch {
-            val patients = runCatching { api.searchPatients() }.getOrDefault(emptyList())
+            val patients = patientRepository.searchPatients().getOrDefault(emptyList())
             if (patients.isNotEmpty()) {
                 patients.forEach { patientNames[it.id] = it.name }
                 val thisMonth = YearMonth.now()
@@ -83,8 +91,8 @@ class StaffViewModel @Inject constructor(
                         newPatientsThisMonth = newThisMonth,
                     )
                 }
-                runCatching { api.getClinicalRecordsSummary() }.onSuccess { summary ->
-                    _uiState.update { it.copy(patientsWithRecords = summary.patientsWithRecords) }
+                clinicalRecordRepository.countPatientsWithRecords().onSuccess { count ->
+                    _uiState.update { it.copy(patientsWithRecords = count) }
                 }
             }
         }
@@ -92,10 +100,10 @@ class StaffViewModel @Inject constructor(
 
     private suspend fun patientName(id: UUID): String =
         patientNames[id]
-            ?: runCatching { api.getPatient(id).name }.getOrNull()?.also { patientNames[id] = it }
+            ?: patientRepository.getPatient(id).getOrNull()?.name?.also { patientNames[id] = it }
             ?: "Paciente"
 
-    private fun toStaffPatient(dto: PatientDto): StaffPatient {
+    private fun toStaffPatient(dto: Patient): StaffPatient {
         val words = dto.name.trim().split(' ').filter { it.isNotBlank() }
         val age =
             dto.birthDate
@@ -129,9 +137,9 @@ class StaffViewModel @Inject constructor(
     private suspend fun loadTodayAgenda(): List<AgendaItem> {
         val session = getSession() ?: return emptyList()
         if (session.isPatient) return emptyList()
-        val storeId = api.getStaffMember(session.patientId).opticalStoreId
+        val storeId = staffMemberRepository.getStaffMember(session.patientId).getOrThrow().opticalStoreId
         val now = Instant.now()
-        return api.getStoreAgenda(storeId, LocalDate.now().toString())
+        return appointmentRepository.getStoreAgenda(storeId, LocalDate.now()).getOrThrow()
             .filter { it.status != "CANCELLED" }
             .map { appointment ->
                 toAgendaItem(appointment, patientName(appointment.patientId), now)
@@ -142,7 +150,7 @@ class StaffViewModel @Inject constructor(
      * Una cita confirmada que empieza en los próximos [WAITING_WINDOW_MINUTES] minutos (o ya empezó)
      * se muestra en la sala de espera; el backend no tiene un estado aparte para eso.
      */
-    private fun toAgendaItem(dto: AppointmentDto, name: String, now: Instant): AgendaItem {
+    private fun toAgendaItem(dto: Appointment, name: String, now: Instant): AgendaItem {
         val inWaitingWindow =
             !now.isBefore(dto.startDateTime.minus(Duration.ofMinutes(WAITING_WINDOW_MINUTES))) &&
                 now.isBefore(dto.endDateTime)
@@ -165,7 +173,7 @@ class StaffViewModel @Inject constructor(
 
     fun refreshProduction() {
         viewModelScope.launch {
-            val orders = runCatching { api.getWorkOrders() }.getOrDefault(emptyList())
+            val orders = workOrderRepository.getWorkOrders().getOrDefault(emptyList())
             if (orders.isNotEmpty()) {
                 val items = orders.map { order -> toProductionOrder(order, order.patientId?.let { patientName(it) } ?: "Paciente") }
                 val inWorkshop =
@@ -215,7 +223,7 @@ class StaffViewModel @Inject constructor(
             DateTimeFormatter.ofPattern("d MMM yyyy", Locale("es", "PE")).withZone(ZoneId.systemDefault())
     }
 
-    private fun toProductionOrder(dto: WorkOrderDto, patientName: String): ProductionOrder {
+    private fun toProductionOrder(dto: WorkOrder, patientName: String): ProductionOrder {
         val stage =
             runCatching { ProductionStage.valueOf(dto.status.uppercase(Locale.US)) }
                 .getOrDefault(ProductionStage.PENDING)
@@ -232,7 +240,7 @@ class StaffViewModel @Inject constructor(
         return ProductionOrder(
             code = "OT-" + dto.id.toString().take(4).uppercase(Locale.US),
             patient = patientName,
-            detail = dto.lenses?.firstOrNull()?.specifications ?: "Monofocal 1.60",
+            detail = dto.lenses.firstOrNull()?.specifications ?: "Monofocal 1.60",
             stage = stage,
             due = due,
             needsAttention = dto.delayed,

@@ -11,5 +11,5 @@ class BookAppointmentUseCase @Inject constructor(
     suspend operator fun invoke(
         opticalStoreId: UUID,
         timeSlotId: UUID,
-    ): Appointment = repository.bookAppointment(opticalStoreId, timeSlotId)
+    ): Result<Appointment> = repository.bookAppointment(opticalStoreId, timeSlotId)
 }
