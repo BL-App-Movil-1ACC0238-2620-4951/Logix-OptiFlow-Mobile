@@ -3,8 +3,12 @@ package com.logix.optiflow.ui.patient
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.logix.optiflow.data.remote.api.SearchBookingApi
+import com.logix.optiflow.data.remote.dto.BookAppointmentRequest
 import com.logix.optiflow.data.remote.dto.ClinicalRecordDto
+import com.logix.optiflow.data.remote.dto.TimeSlotDto
+import com.logix.optiflow.data.remote.dto.UpdateAppointmentStatusRequest
 import com.logix.optiflow.data.remote.dto.WorkOrderDto
+import com.logix.optiflow.data.remote.toUserMessage
 import com.logix.optiflow.domain.model.OpticalStore
 import com.logix.optiflow.domain.model.PatientSession
 import com.logix.optiflow.domain.repository.PatientRepository
@@ -15,6 +19,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import java.util.UUID
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -46,6 +51,7 @@ data class AppointmentUi(
     val status: AppointmentStatus,
     val isPast: Boolean,
     val fromApi: Boolean,
+    val storeId: UUID? = null,
 )
 
 data class OrderUi(
@@ -177,7 +183,7 @@ class PatientViewModel(
                         status = mapStatus(appt.status),
                         isPast = appt.endDateTime.isBefore(now),
                         fromApi = true,
-                    )
+                    ).copy(storeId = appt.opticalStoreId)
                 }
             val appointments =
                 (apiAppointments.ifEmpty { demoAppointments() })
@@ -202,8 +208,14 @@ class PatientViewModel(
 
     fun order(id: String): OrderUi? = _uiState.value.orders.firstOrNull { it.id == id }
 
-    /** El backend aún no tiene endpoint de cancelación: se refleja localmente. */
+    /** Cancela la cita con `PATCH /appointments/{id}/status`; las citas de demostración solo se marcan aquí. */
     fun cancelAppointment(id: String) {
+        if (appointment(id)?.fromApi == true) {
+            viewModelScope.launch {
+                runCatching { api.updateAppointmentStatus(UUID.fromString(id), CANCEL_REQUEST) }
+                    .onSuccess { refresh() }
+            }
+        }
         cancelledIds += id
         _uiState.update { state ->
             state.copy(
@@ -212,6 +224,29 @@ class PatientViewModel(
                         if (it.id == id) it.copy(status = AppointmentStatus.CANCELLED) else it
                     },
             )
+        }
+    }
+
+    /** Horarios disponibles de una óptica para reprogramar una cita. */
+    suspend fun availableSlots(storeId: UUID): List<TimeSlotDto> =
+        runCatching { api.getTimeSlots(storeId) }
+            .getOrDefault(emptyList())
+            .filter { it.status.equals("AVAILABLE", ignoreCase = true) }
+
+    /**
+     * Reprograma una cita: primero reserva el nuevo horario y luego cancela la cita anterior, para no
+     * perderla si el horario elegido ya no está disponible. [onDone] recibe el error o `null`.
+     */
+    fun reschedule(appointmentId: String, storeId: UUID, timeSlotId: UUID, onDone: (String?) -> Unit) {
+        viewModelScope.launch {
+            val result =
+                runCatching {
+                    val session = patientRepository.getSession() ?: error("Inicia sesión para reprogramar tu cita.")
+                    api.bookAppointment(BookAppointmentRequest(session.patientId, storeId, timeSlotId))
+                    api.updateAppointmentStatus(UUID.fromString(appointmentId), CANCEL_REQUEST)
+                }
+            onDone(result.exceptionOrNull()?.toUserMessage())
+            if (result.isSuccess) refresh()
         }
     }
 
@@ -345,6 +380,8 @@ class PatientViewModel(
     }
 
     companion object {
+        private val CANCEL_REQUEST = UpdateAppointmentStatusRequest(status = "CANCELLED")
+
         fun demoAppointments(): List<AppointmentUi> =
             listOf(
                 AppointmentUi(
