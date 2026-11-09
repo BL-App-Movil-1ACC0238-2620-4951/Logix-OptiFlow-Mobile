@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.logix.optiflow.R
 import com.logix.optiflow.presentation.navigation.Routes
+import com.logix.optiflow.presentation.patient.PrescriptionUi
 import com.logix.optiflow.presentation.patient.components.PatientScreen
 import com.logix.optiflow.presentation.patient.components.patientViewModel
 import com.logix.optiflow.presentation.shared.components.HSpace
@@ -77,12 +78,46 @@ private val DpBox = Color(0xFFE7EEFC)
 private val ChipBg = Color(0xFFDCE6FB)
 private val Teal = Color(0xFF0F766E)
 
+private fun blankPrescription(name: String): PrescriptionUi =
+    PrescriptionUi(
+        patientName = name,
+        date = "—",
+        issuedLabel = "",
+        sphereOD = "", cylinderOD = "", axisOD = "", additionOD = "",
+        sphereOI = "", cylinderOI = "", axisOI = "", additionOI = "",
+        pupillaryDistance = "",
+        diagnoses = emptyList(),
+        observations = "",
+    )
+
+@Composable
+private fun NoPrescription(nav: NavController) {
+    PatientScreen(
+        nav = nav,
+        tab = null,
+        topBar = { PatientDarkTopBar("Receta óptica", onBack = { nav.popBackStack() }) },
+    ) {
+        Column(Modifier.fillMaxWidth().padding(24.dp)) {
+            Txt("Aún no tienes una receta registrada.", 16, weight = FontWeight.Bold, color = NavyBlue)
+            VSpace(8.dp)
+            Txt("Aparecerá aquí después de tu evaluación visual en la óptica.", 13, color = Slate500)
+            VSpace(20.dp)
+            SolidButton("Ingresar mi receta", onClick = { nav.navigate(Routes.P_PRESCRIPTION_EDIT) })
+        }
+    }
+}
+
 @Composable
 fun PrescriptionScreen(nav: NavController, editable: Boolean) {
     val vm = patientViewModel()
     val state by vm.uiState.collectAsState()
     val context = LocalContext.current
-    val rx = state.prescription
+    val saved = state.prescription
+    if (saved == null && !editable) {
+        NoPrescription(nav)
+        return
+    }
+    val rx = saved ?: blankPrescription(state.displayName)
 
     val values =
         remember(editable) {

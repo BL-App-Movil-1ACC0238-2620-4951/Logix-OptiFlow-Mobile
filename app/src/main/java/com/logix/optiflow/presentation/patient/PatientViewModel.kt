@@ -112,13 +112,13 @@ data class PatientUiState(
     val appointments: List<AppointmentUi> = emptyList(),
     val orders: List<OrderUi> = emptyList(),
     val history: List<HistoryEntryUi> = emptyList(),
-    val prescription: PrescriptionUi = PatientViewModel.demoPrescription("Valentina Silva"),
+    val prescription: PrescriptionUi? = null,
     val stores: List<OpticalStore> = emptyList(),
     val isLoading: Boolean = true,
 ) {
-    val displayName: String get() = session?.name?.takeIf { it.isNotBlank() } ?: "Valentina Silva"
+    val displayName: String get() = session?.name.orEmpty()
     val firstName: String get() = displayName.trim().substringBefore(' ')
-    val email: String get() = session?.email?.takeIf { it.isNotBlank() } ?: "valentina.silva@email.com"
+    val email: String get() = session?.email.orEmpty()
     val initials: String
         get() =
             displayName.split(' ').filter { it.isNotBlank() }.take(2)
@@ -192,18 +192,18 @@ class PatientViewModel @Inject constructor(
                     ).copy(storeId = appt.opticalStoreId)
                 }
             val appointments =
-                (apiAppointments.ifEmpty { demoAppointments() })
+                apiAppointments
                     .map { if (it.id in cancelledIds) it.copy(status = AppointmentStatus.CANCELLED) else it }
-            val name = session?.name?.takeIf { it.isNotBlank() } ?: "Valentina Silva"
+            val name = session?.name.orEmpty()
             val records = recordsJob.await()
             _uiState.update {
                 it.copy(
                     session = session,
                     stores = stores,
                     appointments = appointments,
-                    orders = ordersJob.await().map(::toOrderUi).ifEmpty { demoOrders() },
-                    history = records.map(::toHistory).ifEmpty { demoHistory() },
-                    prescription = latestPrescription(records, name) ?: demoPrescription(name),
+                    orders = ordersJob.await().map(::toOrderUi),
+                    history = records.map(::toHistory),
+                    prescription = latestPrescription(records, name),
                     isLoading = false,
                 )
             }
@@ -322,7 +322,10 @@ class PatientViewModel @Inject constructor(
                 ?: return null
         val p = record.prescription ?: return null
         val date = record.examinationDate ?: Instant.now()
-        return demoPrescription(name).copy(
+        return PrescriptionUi(
+            patientName = name,
+            pupillaryDistance = "—",
+            diagnoses = emptyList(),
             date = DateTimeFormatter.ofPattern("dd/MM/yyyy").withZone(zone).format(date),
             issuedLabel = "Emitida el " + DateTimeFormatter.ofPattern("d MMM yyyy", es).withZone(zone).format(date),
             sphereOD = fmt(p.sphereOD),
@@ -378,59 +381,5 @@ class PatientViewModel @Inject constructor(
             isPast = isPast,
             fromApi = fromApi,
         )
-    }
-
-    companion object {
-
-        fun demoAppointments(): List<AppointmentUi> =
-            listOf(
-                AppointmentUi(
-                    "demo-1", "24", "JUN", "Junio", "Martes", "10:30", "11:15", "Evaluación visual",
-                    "Óptica Visión Norte", "Av. Providencia 1240", "Dra. Fernanda Soto",
-                    AppointmentStatus.CONFIRMED, isPast = false, fromApi = false,
-                ),
-                AppointmentUi(
-                    "demo-2", "30", "JUN", "Junio", "Lunes", "16:00", "16:45", "Control de lentes",
-                    "Óptica Visión Norte", "Av. Providencia 1240", "Dr. Matías Araya",
-                    AppointmentStatus.PENDING, isPast = false, fromApi = false,
-                ),
-                AppointmentUi(
-                    "demo-3", "12", "MAR", "Marzo", "Miércoles", "09:30", "10:15", "Evaluación visual",
-                    "Óptica Visión Norte", "Av. Providencia 1240", "Dra. Fernanda Soto",
-                    AppointmentStatus.CONFIRMED, isPast = true, fromApi = false,
-                ),
-            )
-
-        fun demoOrders(): List<OrderUi> =
-            listOf(
-                OrderUi(
-                    "demo-order", "OF-2481", "Lentes ópticos + montura", "14 jun", 2,
-                    "26 y 28 de junio", "Montura Nova N-24 · Azul", "Lentes monofocales con antirreflejo",
-                    "Óptica Visión Norte · Providencia", listOf("14 jun · 12:24", "14 jun · 12:26"), fromApi = false,
-                ),
-                OrderUi(
-                    "demo-order-2", "OF-2210", "Lentes de sol graduados", "02 mar", 4,
-                    "5 de marzo", "Havana Sun · Dorado", "Lentes solares polarizados",
-                    "Óptica Visión Norte · Providencia", listOf("2 mar · 10:02", "2 mar · 10:05"), fromApi = false,
-                ),
-            )
-
-        fun demoHistory(): List<HistoryEntryUi> =
-            listOf(
-                HistoryEntryUi("12 MAR 2025", "Evaluación visual", "Miopía leve estable", "Dra. Fernanda Soto"),
-                HistoryEntryUi("08 SEP 2024", "Control de lentes", "Sin cambios relevantes", "Dr. Matías Araya"),
-            )
-
-        fun demoPrescription(name: String): PrescriptionUi =
-            PrescriptionUi(
-                patientName = name,
-                date = "18/10/2026",
-                issuedLabel = "Emitida el 18 oct 2026",
-                sphereOD = "−1.25", cylinderOD = "−0.50", axisOD = "175°", additionOD = "+0.75",
-                sphereOI = "−1.00", cylinderOI = "−0.75", axisOI = "10°", additionOI = "+0.75",
-                pupillaryDistance = "62",
-                diagnoses = listOf("Miopía", "Astigmatismo"),
-                observations = "Uso permanente. Lentes monofocales con tratamiento antirreflejo y filtro UV.",
-            )
     }
 }

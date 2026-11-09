@@ -17,6 +17,7 @@ import com.logix.optiflow.domain.model.searchbooking.StaffRole
 import com.logix.optiflow.domain.repository.clinical.ClinicalRecordRepository
 import com.logix.optiflow.domain.repository.production.WorkOrderRepository
 import com.logix.optiflow.domain.repository.searchbooking.AppointmentRepository
+import com.logix.optiflow.domain.repository.searchbooking.OpticalStoreRepository
 import com.logix.optiflow.domain.repository.searchbooking.PatientRepository
 import com.logix.optiflow.domain.repository.searchbooking.StaffMemberRepository
 import com.logix.optiflow.domain.usecase.searchbooking.GetPatientSessionUseCase
@@ -38,19 +39,35 @@ import kotlinx.coroutines.launch
 
 data class StaffUiState(
     val role: StaffRole? = null,
-    val patients: List<StaffPatient> = DemoData.staffPatients,
+    val staffName: String = "",
+    val storeName: String = "",
+    val patients: List<StaffPatient> = emptyList(),
     val patientsFromApi: Boolean = false,
     val newPatientsThisMonth: Int = 0,
     val patientsWithRecords: Long = 0,
     val workshopPatientIds: Set<String> = emptySet(),
-    val agenda: List<AgendaItem> = DemoData.agenda,
+    val agenda: List<AgendaItem> = emptyList(),
+    val agendaDate: LocalDate = LocalDate.now(STORE_ZONE),
     val agendaFromApi: Boolean = false,
-    val productionOrders: List<ProductionOrder> = DemoData.productionOrders,
+    val productionOrders: List<ProductionOrder> = emptyList(),
     val productionFromApi: Boolean = false,
     val stock: Map<String, Int> = DemoData.products.associate { it.id to it.available },
     val clinicalStage: Int = 1,
     val workOrderSent: Boolean = false,
-)
+) {
+    val firstName: String get() = staffName.trim().substringBefore(' ')
+    val initials: String
+        get() = staffName.split(' ').filter { it.isNotBlank() }.take(2).joinToString("") { it.first().uppercase() }
+    val isToday: Boolean get() = agendaDate == LocalDate.now(STORE_ZONE)
+    val agendaDateLabel: String get() = DAY_LABEL.format(agendaDate).uppercase(ES).replace(".", "")
+
+    /** Lunes a sábado de la semana de la agenda. */
+    val agendaWeek: List<LocalDate>
+        get() = agendaDate.with(java.time.DayOfWeek.MONDAY).let { monday -> (0L..5L).map { monday.plusDays(it) } }
+}
+
+private val ES = Locale("es", "PE")
+private val DAY_LABEL: DateTimeFormatter = DateTimeFormatter.ofPattern("EEEE d MMM", ES)
 
 /**
  * Estado del personal clínico. El directorio viene de `GET /patients`, las órdenes de trabajo de
@@ -64,6 +81,7 @@ class StaffViewModel @Inject constructor(
     private val staffMemberRepository: StaffMemberRepository,
     private val workOrderRepository: WorkOrderRepository,
     private val clinicalRecordRepository: ClinicalRecordRepository,
+    private val opticalStoreRepository: OpticalStoreRepository,
     private val getSession: GetPatientSessionUseCase,
     sessionEvents: SessionEvents,
 ) : ViewModel() {
@@ -86,12 +104,25 @@ class StaffViewModel @Inject constructor(
         if (loaded) return
         loaded = true
         viewModelScope.launch {
-            val role = getSession()?.staffRole
+            val session = getSession()
+            val role = session?.staffRole
             _uiState.update { it.copy(role = role) }
+            if (session != null && role != null) loadProfile(session.patientId)
             // Solo se piden los datos que el rol puede ver; el resto respondería 403.
             if (role.can(StaffFeature.PATIENTS)) refreshPatients()
             if (role.can(StaffFeature.PRODUCTION)) refreshProduction()
             if (role.can(StaffFeature.AGENDA)) refreshAgenda()
+        }
+    }
+
+    /** Nombre del usuario y de su óptica para la cabecera. */
+    private fun loadProfile(staffId: UUID) {
+        viewModelScope.launch {
+            val member = staffMemberRepository.getStaffMember(staffId).getOrNull() ?: return@launch
+            _uiState.update { it.copy(staffName = member.name) }
+            opticalStoreRepository.getOpticalStores().getOrNull()
+                ?.firstOrNull { it.id == member.opticalStoreId }
+                ?.let { store -> _uiState.update { it.copy(storeName = store.name) } }
         }
     }
 
@@ -111,8 +142,7 @@ class StaffViewModel @Inject constructor(
 
     fun refreshPatients() {
         viewModelScope.launch {
-            val patients = patientRepository.searchPatients().getOrDefault(emptyList())
-            if (patients.isNotEmpty()) {
+            patientRepository.searchPatients().onSuccess { patients ->
                 patients.forEach { patientNames[it.id] = it.name }
                 val thisMonth = YearMonth.now(STORE_ZONE)
                 val newThisMonth =
@@ -158,21 +188,21 @@ class StaffViewModel @Inject constructor(
         )
     }
 
-    fun refreshAgenda() {
+    fun refreshAgenda(date: LocalDate = _uiState.value.agendaDate) {
+        _uiState.update { it.copy(agendaDate = date) }
         viewModelScope.launch {
-            val items = runCatching { loadTodayAgenda() }.getOrDefault(emptyList())
-            if (items.isNotEmpty()) {
+            runCatching { loadAgenda(date) }.onSuccess { items ->
                 _uiState.update { it.copy(agenda = items, agendaFromApi = true) }
             }
         }
     }
 
-    private suspend fun loadTodayAgenda(): List<AgendaItem> {
+    private suspend fun loadAgenda(date: LocalDate): List<AgendaItem> {
         val session = getSession() ?: return emptyList()
         if (session.isPatient) return emptyList()
         val storeId = staffMemberRepository.getStaffMember(session.patientId).getOrThrow().opticalStoreId
         val now = Instant.now()
-        return appointmentRepository.getStoreAgenda(storeId, LocalDate.now(STORE_ZONE)).getOrThrow()
+        return appointmentRepository.getStoreAgenda(storeId, date).getOrThrow()
             .filter { it.status != "CANCELLED" }
             .map { appointment ->
                 toAgendaItem(appointment, patientName(appointment.patientId), now)
@@ -206,8 +236,7 @@ class StaffViewModel @Inject constructor(
 
     fun refreshProduction() {
         viewModelScope.launch {
-            val orders = workOrderRepository.getWorkOrders().getOrDefault(emptyList())
-            if (orders.isNotEmpty()) {
+            workOrderRepository.getWorkOrders().onSuccess { orders ->
                 val items = orders.map { order -> toProductionOrder(order, order.patientId?.let { patientName(it) } ?: "Paciente") }
                 val inWorkshop =
                     orders.filter { it.status != "DELIVERED" }.mapNotNull { it.patientId?.toString() }.toSet()

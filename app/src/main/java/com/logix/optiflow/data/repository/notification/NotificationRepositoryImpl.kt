@@ -67,59 +67,8 @@ class NotificationRepositoryImpl @Inject constructor(
                     )
             }
 
-            addDemoIfMissing(fromApi)
-            val supplemental = supplementalNotifications()
-            (fromApi + supplemental).sortedByDescending { it.occurredAt }
+            fromApi.sortedByDescending { it.occurredAt }
         }
-
-    private fun addDemoIfMissing(fromApi: MutableList<NotificationItem>) {
-        val now = Instant.now()
-        if (fromApi.none { it.type == NotificationType.APPOINTMENT }) {
-            fromApi +=
-                NotificationItem(
-                    id = "demo-appt-reminder",
-                    type = NotificationType.APPOINTMENT,
-                    title = "Recordatorio de cita",
-                    message = "Tu evaluación visual es el martes a las 10:30.",
-                    occurredAt = now.minusSeconds(7_200L),
-                    fromApi = false,
-                )
-        }
-        if (fromApi.none { it.type == NotificationType.ORDER }) {
-            fromApi +=
-                NotificationItem(
-                    id = "demo-order-progress",
-                    type = NotificationType.ORDER,
-                    title = "Tu pedido avanzó",
-                    message = "Tus lentes ya están en producción.",
-                    occurredAt = now.minusSeconds(18_000L),
-                    fromApi = false,
-                )
-        }
-    }
-
-    private fun supplementalNotifications(): List<NotificationItem> {
-        val now = Instant.now()
-        return listOf(
-            NotificationItem(
-                id = "health-last-check",
-                type = NotificationType.HEALTH,
-                title = "Cuida tu salud visual",
-                message = "Han pasado 9 meses desde tu último control.",
-                occurredAt = now.minusSeconds(86_400L),
-                fromApi = false,
-            ),
-            NotificationItem(
-                id = "promo-season",
-                type = NotificationType.PROMO,
-                title = "Descuento de Temporada",
-                message = "Compra un armazón oftálmico y llévate el segundo al 50% de descuento.",
-                occurredAt = now.minusSeconds(90_000L),
-                navigable = true,
-                fromApi = false,
-            ),
-        )
-    }
 
     override suspend fun getReadIds(): Set<String> = readStore.readIds()
 

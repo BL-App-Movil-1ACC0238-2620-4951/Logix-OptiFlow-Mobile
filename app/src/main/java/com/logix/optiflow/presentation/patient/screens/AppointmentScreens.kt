@@ -200,7 +200,11 @@ private fun AppointmentCard(appointment: AppointmentUi, onClick: () -> Unit) {
 fun AppointmentDetailScreen(nav: NavController, id: String) {
     val vm = patientViewModel()
     val state by vm.uiState.collectAsState()
-    val appointment = state.appointments.firstOrNull { it.id == id } ?: PatientViewModel.demoAppointments().first()
+    val appointment = state.appointments.firstOrNull { it.id == id }
+    if (appointment == null) {
+        LaunchedEffect(id) { nav.popBackStack() }
+        return
+    }
     val context = LocalContext.current
 
     PatientScreen(

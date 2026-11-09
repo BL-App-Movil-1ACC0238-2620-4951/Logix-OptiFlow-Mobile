@@ -141,7 +141,7 @@ fun PatientHomeScreen(nav: NavController) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(6.dp).clip(CircleShape).background(Electric))
                             HSpace(4.dp)
-                            Txt("2 activas", 10, weight = FontWeight.Medium, color = Slate500)
+                            Txt(if (state.prescription != null) "1 activa" else "Sin recetas", 10, weight = FontWeight.Medium, color = Slate500)
                         }
                     }
                     QuickAccess(

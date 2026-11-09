@@ -208,17 +208,20 @@ fun ClinicalHistoryScreen(nav: NavController) {
                 Column {
                     Txt("Último control", 12, color = White.copy(alpha = 0.75f))
                     Txt(
-                        latest?.let { prettyDate(it.date) } ?: "12 de marzo de 2025",
+                        latest?.let { prettyDate(it.date) } ?: "Sin controles registrados",
                         18,
                         weight = FontWeight.Bold,
                         color = White,
                     )
-                    Txt("Próximo control recomendado en 9 meses", 12, color = White.copy(alpha = 0.8f))
+                    if (latest != null) Txt("Próximo control recomendado en 9 meses", 12, color = White.copy(alpha = 0.8f))
                 }
             }
             VSpace(28.dp)
             Txt("Atenciones", 18, weight = FontWeight.Bold, color = DeepNavy)
             VSpace(16.dp)
+            if (state.history.isEmpty()) {
+                Txt("Aún no tienes atenciones registradas.", 14, color = Slate500)
+            }
             state.history.forEachIndexed { index, entry ->
                 Row(Modifier.tap { nav.navigate(Routes.P_PRESCRIPTION) }) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(16.dp)) {

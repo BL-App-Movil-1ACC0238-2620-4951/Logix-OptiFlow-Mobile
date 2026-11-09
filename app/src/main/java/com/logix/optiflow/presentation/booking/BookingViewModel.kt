@@ -57,7 +57,6 @@ data class BookingUiState(
     val session: PatientSession? = null,
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
-    val demoMode: Boolean = false,
 ) {
     val selectedStore: StoreOption? get() = stores.getOrNull(selectedStoreIndex)
     val weekDays: List<LocalDate> get() = (0L..4L).map { weekStart.plusDays(it) }
@@ -93,22 +92,18 @@ class BookingViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             val session = runCatching { getPatientSession() }.getOrNull()
-            val apiStores = getOpticalStores().getOrDefault(emptyList())
+            val storesResult = getOpticalStores()
             val options =
-                if (apiStores.isNotEmpty()) {
-                    apiStores.mapIndexed { index, store ->
-                        val today = index % 2 == 0
-                        StoreOption(
-                            id = store.id,
-                            name = store.name,
-                            address = store.address,
-                            distance = DISTANCES[index % DISTANCES.size],
-                            availability = if (today) "Disponible hoy" else "Disponible mañana",
-                            availableToday = today,
-                        )
-                    }
-                } else {
-                    DEMO_STORES
+                storesResult.getOrDefault(emptyList()).mapIndexed { index, store ->
+                    val today = index % 2 == 0
+                    StoreOption(
+                        id = store.id,
+                        name = store.name,
+                        address = store.address,
+                        distance = DISTANCES[index % DISTANCES.size],
+                        availability = if (today) "Disponible hoy" else "Disponible mañana",
+                        availableToday = today,
+                    )
                 }
             val preselected = options.indexOfFirst { it.id != null && it.id == preselectedStoreId }
             _uiState.update {
@@ -116,7 +111,7 @@ class BookingViewModel @Inject constructor(
                     session = session,
                     stores = options,
                     selectedStoreIndex = preselected.coerceAtLeast(0),
-                    demoMode = apiStores.isEmpty(),
+                    errorMessage = storesResult.exceptionOrNull()?.toUserMessage(),
                     isLoading = false,
                 )
             }
@@ -144,12 +139,11 @@ class BookingViewModel @Inject constructor(
         viewModelScope.launch {
             val apiSlots =
                 store.id?.let { id -> getAvailability(id).getOrDefault(emptyList()) }.orEmpty()
-            val slots = apiSlots.map(::toOption).ifEmpty { demoSlots() }
+            val slots = apiSlots.map(::toOption)
             val firstDate = slots.minOfOrNull { it.date }
             _uiState.update {
                 it.copy(
                     slots = slots,
-                    demoMode = it.demoMode || apiSlots.isEmpty(),
                     selectedDate = firstDate,
                     weekStart =
                         (firstDate ?: LocalDate.now(STORE_ZONE)).with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)),
@@ -208,23 +202,7 @@ class BookingViewModel @Inject constructor(
         return SlotOption(id = slot.id, date = local.toLocalDate(), time = local.toLocalTime())
     }
 
-    private fun demoSlots(): List<SlotOption> {
-        val monday = LocalDate.now(STORE_ZONE).plusWeeks(1).with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-        val times = listOf("09:00", "09:30", "10:30", "11:00", "15:00", "15:30", "16:00", "17:30")
-        return (0L..4L).flatMap { offset ->
-            times.map { SlotOption(id = null, date = monday.plusDays(offset), time = LocalTime.parse(it)) }
-        }
-    }
-
     companion object {
         private val DISTANCES = listOf("0,8 km", "3,2 km", "1,4 km", "3,6 km")
-
-        private val DEMO_STORES =
-            listOf(
-                StoreOption(null, "Providencia", "Av. Providencia 1240", "0,8 km", "Disponible hoy", true),
-                StoreOption(null, "Las Condes", "Av. Apoquindo 3472", "3,2 km", "Disponible mañana", false),
-                StoreOption(null, "Óptima Markitos", "Av. San Marcos 1240", "1,4 km", "Disponible hoy", true),
-                StoreOption(null, "Dolores", "Av. Hormigas 3472", "3,6 km", "Disponible mañana", false),
-            )
     }
 }

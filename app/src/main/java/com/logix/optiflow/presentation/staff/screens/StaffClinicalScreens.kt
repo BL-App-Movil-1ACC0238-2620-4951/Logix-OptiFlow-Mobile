@@ -19,6 +19,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -380,7 +381,11 @@ fun ClinicalCareScreen(nav: NavController) {
 fun StaffPatientRecordScreen(nav: NavController, id: String) {
     val vm = staffViewModel()
     val state by vm.uiState.collectAsState()
-    val patient = state.patients.firstOrNull { it.id == id } ?: DemoData.staffPatient(id)
+    val patient = state.patients.firstOrNull { it.id == id }
+    if (patient == null) {
+        LaunchedEffect(id) { nav.popBackStack() }
+        return
+    }
 
     StaffScreen(
         nav = nav,
