@@ -10,5 +10,5 @@ class GetOpticalStoresUseCase @Inject constructor(
     suspend operator fun invoke(
         name: String? = null,
         address: String? = null,
-    ): List<OpticalStore> = repository.getOpticalStores(name, address)
+    ): Result<List<OpticalStore>> = repository.getOpticalStores(name, address)
 }

@@ -7,11 +7,11 @@ interface OpticalStoreRepository {
     suspend fun getOpticalStores(
         name: String? = null,
         address: String? = null,
-    ): List<OpticalStore>
+    ): Result<List<OpticalStore>>
 
     suspend fun searchOpticalStores(
         name: String? = null,
         address: String? = null,
         minRating: Double? = null,
-    ): OpticalStoreSearchResult
+    ): Result<OpticalStoreSearchResult>
 }

@@ -12,5 +12,5 @@ class RegisterPatientUseCase @Inject constructor(
         email: String,
         phone: String,
         password: String,
-    ): Patient = repository.register(name, email, phone, password)
+    ): Result<Patient> = repository.register(name, email, phone, password)
 }

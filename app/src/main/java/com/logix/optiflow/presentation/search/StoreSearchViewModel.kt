@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.logix.optiflow.data.remote.toUserMessage
 import com.logix.optiflow.domain.model.searchbooking.OpticalStore
+import com.logix.optiflow.domain.model.searchbooking.OpticalStoreSearchResult
 import com.logix.optiflow.domain.usecase.searchbooking.GetOpticalStoresUseCase
 import com.logix.optiflow.domain.usecase.searchbooking.SearchOpticalStoresUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -66,30 +67,31 @@ class StoreSearchViewModel @Inject constructor(
     fun search() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null, infoMessage = null) }
-            try {
-                val name = _uiState.value.nameQuery.trim().ifEmpty { null }
-                val address = _uiState.value.addressQuery.trim().ifEmpty { null }
-                val minRating = parseMinRating(_uiState.value.minRatingQuery)
-                val useAdvanced = _uiState.value.useAdvancedFilter || minRating != null
+            val name = _uiState.value.nameQuery.trim().ifEmpty { null }
+            val address = _uiState.value.addressQuery.trim().ifEmpty { null }
+            val minRating = parseMinRating(_uiState.value.minRatingQuery)
+            val useAdvanced = _uiState.value.useAdvancedFilter || minRating != null
 
+            val result =
                 if (useAdvanced) {
-                    val result = searchOpticalStores(name = name, address = address, minRating = minRating)
+                    searchOpticalStores(name = name, address = address, minRating = minRating)
+                } else {
+                    getOpticalStores(name = name, address = address).map { OpticalStoreSearchResult(it, null) }
+                }
+            result
+                .onSuccess { found ->
                     _uiState.update {
                         it.copy(
-                            stores = result.stores,
-                            infoMessage = result.message?.takeIf { msg -> result.stores.isEmpty() },
+                            stores = found.stores,
+                            infoMessage = found.message?.takeIf { found.stores.isEmpty() },
                             isLoading = false,
                         )
                     }
-                } else {
-                    val stores = getOpticalStores(name = name, address = address)
-                    _uiState.update { it.copy(stores = stores, isLoading = false) }
+                }.onFailure { error ->
+                    _uiState.update {
+                        it.copy(isLoading = false, errorMessage = error.toUserMessage())
+                    }
                 }
-            } catch (error: Exception) {
-                _uiState.update {
-                    it.copy(isLoading = false, errorMessage = error.toUserMessage())
-                }
-            }
         }
     }
 

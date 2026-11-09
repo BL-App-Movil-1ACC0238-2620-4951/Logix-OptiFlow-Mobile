@@ -2,6 +2,7 @@ package com.logix.optiflow.data.repository.notification
 
 import com.logix.optiflow.data.local.notification.NotificationReadStore
 import com.logix.optiflow.data.remote.api.searchbooking.SearchBookingApi
+import com.logix.optiflow.data.remote.safeApiCall
 import com.logix.optiflow.domain.model.notification.NotificationItem
 import com.logix.optiflow.domain.model.notification.NotificationType
 import com.logix.optiflow.domain.repository.notification.NotificationRepository
@@ -12,8 +13,6 @@ import java.util.Locale
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 @Singleton
 class NotificationRepositoryImpl @Inject constructor(
@@ -21,8 +20,8 @@ class NotificationRepositoryImpl @Inject constructor(
     private val readStore: NotificationReadStore,
 ) : NotificationRepository {
 
-    override suspend fun loadForPatient(patientId: UUID): List<NotificationItem> =
-        withContext(Dispatchers.IO) {
+    override suspend fun loadForPatient(patientId: UUID): Result<List<NotificationItem>> =
+        safeApiCall {
             val fromApi = mutableListOf<NotificationItem>()
 
             runCatching {

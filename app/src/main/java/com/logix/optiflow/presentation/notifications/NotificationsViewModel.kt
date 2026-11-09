@@ -53,31 +53,33 @@ class NotificationsViewModel @Inject constructor(
     fun refresh() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-            try {
-                val session =
-                    getPatientSession()
-                        ?: error("Inicia sesión para ver tus notificaciones.")
-                val readIds = notificationRepository.getReadIds()
-                val items = getNotifications(session.patientId)
-                val rows =
-                    items.map { item ->
-                        NotificationRowUi(
-                            item = item,
-                            timeLabel = formatRelativeTime(item.occurredAt),
-                            isRead = item.id in readIds,
+            val session = getPatientSession()
+            if (session == null) {
+                _uiState.update { it.copy(isLoading = false, errorMessage = "Inicia sesión para ver tus notificaciones.") }
+                return@launch
+            }
+            val readIds = notificationRepository.getReadIds()
+            getNotifications(session.patientId)
+                .onSuccess { items ->
+                    val rows =
+                        items.map { item ->
+                            NotificationRowUi(
+                                item = item,
+                                timeLabel = formatRelativeTime(item.occurredAt),
+                                isRead = item.id in readIds,
+                            )
+                        }
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            sections = groupByDay(rows),
                         )
                     }
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        sections = groupByDay(rows),
-                    )
+                }.onFailure { error ->
+                    _uiState.update {
+                        it.copy(isLoading = false, errorMessage = error.toUserMessage())
+                    }
                 }
-            } catch (error: Exception) {
-                _uiState.update {
-                    it.copy(isLoading = false, errorMessage = error.toUserMessage())
-                }
-            }
         }
     }
 

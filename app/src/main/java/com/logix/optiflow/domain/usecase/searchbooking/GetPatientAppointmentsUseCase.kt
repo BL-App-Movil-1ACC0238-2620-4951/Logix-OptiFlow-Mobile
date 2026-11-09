@@ -8,6 +8,6 @@ import javax.inject.Inject
 class GetPatientAppointmentsUseCase @Inject constructor(
     private val repository: AppointmentRepository,
 ) {
-    suspend operator fun invoke(patientId: UUID): List<Appointment> =
+    suspend operator fun invoke(patientId: UUID): Result<List<Appointment>> =
         repository.getPatientAppointments(patientId)
 }

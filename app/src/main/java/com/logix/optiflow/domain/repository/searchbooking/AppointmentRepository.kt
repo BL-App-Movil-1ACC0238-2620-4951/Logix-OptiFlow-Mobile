@@ -5,12 +5,12 @@ import com.logix.optiflow.domain.model.searchbooking.TimeSlot
 import java.util.UUID
 
 interface AppointmentRepository {
-    suspend fun getAvailability(opticalStoreId: UUID): List<TimeSlot>
+    suspend fun getAvailability(opticalStoreId: UUID): Result<List<TimeSlot>>
 
     suspend fun bookAppointment(
         opticalStoreId: UUID,
         timeSlotId: UUID,
-    ): Appointment
+    ): Result<Appointment>
 
-    suspend fun getPatientAppointments(patientId: UUID): List<Appointment>
+    suspend fun getPatientAppointments(patientId: UUID): Result<List<Appointment>>
 }

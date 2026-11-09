@@ -93,22 +93,21 @@ class AuthViewModel @Inject constructor(
     private fun register() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-            try {
-                val state = _uiState.value
-                val email = state.email.trim()
-                registerPatient(
-                    name = state.name.trim(),
-                    email = email,
-                    phone = state.phone.trim(),
-                    password = state.password,
-                )
-                val session = login(email = email, password = state.password)
-                _uiState.update {
-                    it.copy(isLoading = false, session = session, authenticatedAs = UserRole.PATIENT)
+            val state = _uiState.value
+            val email = state.email.trim()
+            registerPatient(
+                name = state.name.trim(),
+                email = email,
+                phone = state.phone.trim(),
+                password = state.password,
+            ).mapCatching { login(email = email, password = state.password).getOrThrow() }
+                .onSuccess { session ->
+                    _uiState.update {
+                        it.copy(isLoading = false, session = session, authenticatedAs = UserRole.PATIENT)
+                    }
+                }.onFailure { error ->
+                    _uiState.update { it.copy(isLoading = false, errorMessage = error.toUserMessage()) }
                 }
-            } catch (error: Exception) {
-                _uiState.update { it.copy(isLoading = false, errorMessage = error.toUserMessage()) }
-            }
         }
     }
 
@@ -116,15 +115,15 @@ class AuthViewModel @Inject constructor(
     private fun signIn() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-            try {
-                val session = login(email = _uiState.value.email.trim(), password = _uiState.value.password)
-                val role = if (session.isPatient) UserRole.PATIENT else UserRole.CLINICAL
-                _uiState.update {
-                    it.copy(isLoading = false, session = session, authenticatedAs = role)
+            login(email = _uiState.value.email.trim(), password = _uiState.value.password)
+                .onSuccess { session ->
+                    val role = if (session.isPatient) UserRole.PATIENT else UserRole.CLINICAL
+                    _uiState.update {
+                        it.copy(isLoading = false, session = session, authenticatedAs = role)
+                    }
+                }.onFailure { error ->
+                    _uiState.update { it.copy(isLoading = false, errorMessage = error.toUserMessage()) }
                 }
-            } catch (error: Exception) {
-                _uiState.update { it.copy(isLoading = false, errorMessage = error.toUserMessage()) }
-            }
         }
     }
 

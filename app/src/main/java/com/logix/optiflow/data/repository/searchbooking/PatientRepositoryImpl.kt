@@ -6,13 +6,12 @@ import com.logix.optiflow.data.remote.AuthTokenHolder
 import com.logix.optiflow.data.remote.api.searchbooking.SearchBookingApi
 import com.logix.optiflow.data.remote.dto.searchbooking.LoginRequest
 import com.logix.optiflow.data.remote.dto.searchbooking.RegisterPatientRequest
+import com.logix.optiflow.data.remote.safeApiCall
 import com.logix.optiflow.domain.model.searchbooking.Patient
 import com.logix.optiflow.domain.model.searchbooking.PatientSession
 import com.logix.optiflow.domain.repository.searchbooking.PatientRepository
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 @Singleton
 class PatientRepositoryImpl @Inject constructor(
@@ -25,8 +24,8 @@ class PatientRepositoryImpl @Inject constructor(
         email: String,
         phone: String,
         password: String,
-    ): Patient =
-        withContext(Dispatchers.IO) {
+    ): Result<Patient> =
+        safeApiCall {
             val patient =
                 api
                     .registerPatient(
@@ -50,8 +49,8 @@ class PatientRepositoryImpl @Inject constructor(
     override suspend fun login(
         email: String,
         password: String,
-    ): PatientSession =
-        withContext(Dispatchers.IO) {
+    ): Result<PatientSession> =
+        safeApiCall {
             val response = api.login(LoginRequest(email = email, password = password))
             AuthTokenHolder.token = response.token
             val profile =

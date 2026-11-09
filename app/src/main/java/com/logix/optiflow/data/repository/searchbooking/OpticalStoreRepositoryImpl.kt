@@ -2,13 +2,12 @@ package com.logix.optiflow.data.repository.searchbooking
 
 import com.logix.optiflow.data.mapper.searchbooking.toDomain
 import com.logix.optiflow.data.remote.api.searchbooking.SearchBookingApi
+import com.logix.optiflow.data.remote.safeApiCall
 import com.logix.optiflow.domain.model.searchbooking.OpticalStore
 import com.logix.optiflow.domain.model.searchbooking.OpticalStoreSearchResult
 import com.logix.optiflow.domain.repository.searchbooking.OpticalStoreRepository
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 @Singleton
 class OpticalStoreRepositoryImpl @Inject constructor(
@@ -18,8 +17,8 @@ class OpticalStoreRepositoryImpl @Inject constructor(
     override suspend fun getOpticalStores(
         name: String?,
         address: String?,
-    ): List<OpticalStore> =
-        withContext(Dispatchers.IO) {
+    ): Result<List<OpticalStore>> =
+        safeApiCall {
             api
                 .listOpticalStores(name = name, address = address)
                 .map { it.toDomain() }
@@ -29,8 +28,8 @@ class OpticalStoreRepositoryImpl @Inject constructor(
         name: String?,
         address: String?,
         minRating: Double?,
-    ): OpticalStoreSearchResult =
-        withContext(Dispatchers.IO) {
+    ): Result<OpticalStoreSearchResult> =
+        safeApiCall {
             val stores =
                 api
                     .listOpticalStores(name = name, address = address, minRating = minRating)

@@ -8,6 +8,6 @@ import javax.inject.Inject
 class GetStoreAvailabilityUseCase @Inject constructor(
     private val repository: AppointmentRepository,
 ) {
-    suspend operator fun invoke(opticalStoreId: UUID): List<TimeSlot> =
+    suspend operator fun invoke(opticalStoreId: UUID): Result<List<TimeSlot>> =
         repository.getAvailability(opticalStoreId)
 }

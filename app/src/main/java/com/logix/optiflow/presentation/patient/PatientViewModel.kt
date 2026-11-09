@@ -151,11 +151,11 @@ class PatientViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             val session = runCatching { patientRepository.getSession() }.getOrNull()
-            val storesJob = async { runCatching { getOpticalStores() }.getOrDefault(emptyList()) }
+            val storesJob = async { getOpticalStores().getOrDefault(emptyList()) }
             val apptJob =
                 async {
                     session?.let { s ->
-                        runCatching { getPatientAppointments(s.patientId) }.getOrDefault(emptyList())
+                        getPatientAppointments(s.patientId).getOrDefault(emptyList())
                     }.orEmpty()
                 }
             val ordersJob =
