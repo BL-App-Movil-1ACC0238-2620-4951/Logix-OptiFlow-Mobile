@@ -2,13 +2,20 @@ package com.logix.optiflow.ui.staff
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.logix.optiflow.data.demo.AgendaItem
+import com.logix.optiflow.data.demo.AgendaStatus
 import com.logix.optiflow.data.demo.DemoData
 import com.logix.optiflow.data.demo.ProductionOrder
 import com.logix.optiflow.data.demo.ProductionStage
 import com.logix.optiflow.data.demo.StaffPatient
 import com.logix.optiflow.data.remote.api.SearchBookingApi
+import com.logix.optiflow.data.remote.dto.AppointmentDto
 import com.logix.optiflow.data.remote.dto.WorkOrderDto
+import com.logix.optiflow.domain.usecase.GetPatientSessionUseCase
+import java.time.Duration
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,6 +26,8 @@ import kotlinx.coroutines.launch
 
 data class StaffUiState(
     val patients: List<StaffPatient> = DemoData.staffPatients,
+    val agenda: List<AgendaItem> = DemoData.agenda,
+    val agendaFromApi: Boolean = false,
     val productionOrders: List<ProductionOrder> = DemoData.productionOrders,
     val productionFromApi: Boolean = false,
     val stock: Map<String, Int> = DemoData.products.associate { it.id to it.available },
@@ -27,11 +36,13 @@ data class StaffUiState(
 )
 
 /**
- * Estado del personal clínico. Las órdenes de trabajo vienen de `GET /work-orders`;
- * pacientes, inventario y agenda usan datos de demostración porque el backend aún no los expone.
+ * Estado del personal clínico. Las órdenes de trabajo vienen de `GET /work-orders` y la agenda del
+ * día de `GET /appointments` de la óptica del usuario; pacientes e inventario usan datos de
+ * demostración.
  */
 class StaffViewModel(
     private val api: SearchBookingApi,
+    private val getSession: GetPatientSessionUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(StaffUiState())
@@ -39,6 +50,54 @@ class StaffViewModel(
 
     init {
         refreshProduction()
+        refreshAgenda()
+    }
+
+    fun refreshAgenda() {
+        viewModelScope.launch {
+            val items = runCatching { loadTodayAgenda() }.getOrDefault(emptyList())
+            if (items.isNotEmpty()) {
+                _uiState.update { it.copy(agenda = items, agendaFromApi = true) }
+            }
+        }
+    }
+
+    private suspend fun loadTodayAgenda(): List<AgendaItem> {
+        val session = getSession() ?: return emptyList()
+        if (session.isPatient) return emptyList()
+        val storeId = api.getStaffMember(session.patientId).opticalStoreId
+        val now = Instant.now()
+        return api.getStoreAgenda(storeId, LocalDate.now().toString())
+            .filter { it.status != "CANCELLED" }
+            .map { appointment ->
+                val name = runCatching { api.getPatient(appointment.patientId).name }.getOrDefault("Paciente")
+                toAgendaItem(appointment, name, now)
+            }
+    }
+
+    /**
+     * Una cita confirmada que empieza en los próximos [WAITING_WINDOW_MINUTES] minutos (o ya empezó)
+     * se muestra en la sala de espera; el backend no tiene un estado aparte para eso.
+     */
+    private fun toAgendaItem(dto: AppointmentDto, name: String, now: Instant): AgendaItem {
+        val inWaitingWindow =
+            !now.isBefore(dto.startDateTime.minus(Duration.ofMinutes(WAITING_WINDOW_MINUTES))) &&
+                now.isBefore(dto.endDateTime)
+        val status =
+            when (dto.status) {
+                "COMPLETED" -> AgendaStatus.DONE
+                "PENDING" -> AgendaStatus.PENDING
+                else -> if (inWaitingWindow) AgendaStatus.WAITING else AgendaStatus.CONFIRMED
+            }
+        val minutes = Duration.between(dto.startDateTime, dto.endDateTime).toMinutes()
+        return AgendaItem(
+            time = TIME_FORMAT.format(dto.startDateTime),
+            duration = "$minutes min",
+            patientId = dto.patientId.toString(),
+            name = name,
+            service = "Evaluación visual",
+            status = status,
+        )
     }
 
     fun refreshProduction() {
@@ -82,6 +141,11 @@ class StaffViewModel(
     fun setClinicalStage(stage: Int) = _uiState.update { it.copy(clinicalStage = stage) }
 
     fun markWorkOrderSent() = _uiState.update { it.copy(workOrderSent = true) }
+
+    private companion object {
+        const val WAITING_WINDOW_MINUTES = 15L
+        val TIME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
+    }
 
     private fun toProductionOrder(dto: WorkOrderDto): ProductionOrder {
         val stage =

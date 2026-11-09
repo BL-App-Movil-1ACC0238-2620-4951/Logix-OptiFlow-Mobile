@@ -187,9 +187,13 @@ private val agendaFilters =
 fun StaffAgendaScreen(nav: NavController) {
     var filter by rememberSaveable { mutableIntStateOf(0) }
     var day by rememberSaveable { mutableIntStateOf(2) }
-    val waiting = DemoData.agenda.filter { it.status == AgendaStatus.WAITING }
+    val vm = staffViewModel()
+    val state by vm.uiState.collectAsState()
+    val agenda = state.agenda
+    val waiting = agenda.filter { it.status == AgendaStatus.WAITING }
+    val done = agenda.count { it.status == AgendaStatus.DONE }
     val predicate = agendaFilters[filter].second
-    val next = DemoData.agenda.filter { it.status != AgendaStatus.WAITING && predicate(it) }
+    val next = agenda.filter { it.status != AgendaStatus.WAITING && predicate(it) }
 
     StaffScreen(
         nav = nav,
@@ -209,12 +213,12 @@ fun StaffAgendaScreen(nav: NavController) {
                 Column(Modifier.weight(1f)) {
                     Txt("MIÉRCOLES 20 JUN", 9, color = Slate300, family = Inter, letterSpacing = 1.2.sp)
                     VSpace(8.dp)
-                    Txt("8 pacientes hoy", 20, color = White, family = Inter)
+                    Txt("${agenda.size} pacientes hoy", 20, color = White, family = Inter)
                     VSpace(8.dp)
-                    Txt("2 consultas completadas · 1 en sala de espera", 11, color = Slate300, family = Inter)
+                    Txt("$done consultas completadas · ${waiting.size} en sala de espera", 11, color = Slate300, family = Inter)
                 }
                 Box(Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(StaffChip), contentAlignment = Alignment.Center) {
-                    Txt("8", 13, color = StaffHeader, family = Inter)
+                    Txt("${agenda.size}", 13, color = StaffHeader, family = Inter)
                 }
             }
         }
@@ -240,7 +244,7 @@ fun StaffAgendaScreen(nav: NavController) {
         VSpace(14.dp)
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             agendaFilters.forEachIndexed { index, (label, pred) ->
-                StaffChip("$label (${DemoData.agenda.count(pred)})", filter == index) { filter = index }
+                StaffChip("$label (${agenda.count(pred)})", filter == index) { filter = index }
             }
         }
         if (filter != 0) {
@@ -258,7 +262,7 @@ fun StaffAgendaScreen(nav: NavController) {
             waiting.forEach { item ->
                 Column(Modifier.fillMaxWidth().staffCard().padding(14.dp)) {
                     Row(Modifier.tap { nav.navigate(Routes.staffPatient(item.patientId)) }, verticalAlignment = Alignment.CenterVertically) {
-                        StaffInitials(DemoData.staffPatient(item.patientId).initials)
+                        StaffInitials(initialsOf(item.name))
                         HSpace(12.dp)
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             StaffPill("En sala · hace 10 min", icon = R.drawable.lucide_ic_clock)
@@ -289,6 +293,9 @@ fun StaffAgendaScreen(nav: NavController) {
         VSpace(90.dp)
     }
 }
+
+private fun initialsOf(name: String): String =
+    name.split(' ').filter { it.isNotBlank() }.take(2).joinToString("") { it.first().uppercase() }
 
 @Composable
 private fun AgendaRow(item: AgendaItem, onClick: () -> Unit) {

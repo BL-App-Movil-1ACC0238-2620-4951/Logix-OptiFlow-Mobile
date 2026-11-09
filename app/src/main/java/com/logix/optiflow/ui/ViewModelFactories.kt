@@ -51,7 +51,12 @@ object ViewModelFactories {
         }
 
     val staff: ViewModelProvider.Factory =
-        simpleFactory { StaffViewModel(api = ApiClient.searchBookingApi) }
+        simpleFactory {
+            StaffViewModel(
+                api = ApiClient.searchBookingApi,
+                getSession = SearchBookingModule.getPatientSessionUseCase,
+            )
+        }
 
     fun booking(storeId: UUID?): ViewModelProvider.Factory =
         simpleFactory {

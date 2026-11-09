@@ -7,12 +7,15 @@ import com.logix.optiflow.data.remote.dto.LoginResponse
 import com.logix.optiflow.data.remote.dto.OpticalStoreDto
 import com.logix.optiflow.data.remote.dto.PatientDto
 import com.logix.optiflow.data.remote.dto.RegisterPatientRequest
+import com.logix.optiflow.data.remote.dto.StaffMemberDto
+import com.logix.optiflow.data.remote.dto.UpdateAppointmentStatusRequest
 import com.logix.optiflow.data.remote.dto.TimeSlotDto
 import com.logix.optiflow.data.remote.dto.WorkOrderDto
 import com.logix.optiflow.data.remote.dto.ClinicalRecordDto
 import java.util.UUID
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
@@ -50,6 +53,23 @@ interface SearchBookingApi {
     suspend fun bookAppointment(
         @Body request: BookAppointmentRequest,
     ): AppointmentDto
+
+    @GET("appointments")
+    suspend fun getStoreAgenda(
+        @Query("opticalStoreId") opticalStoreId: UUID,
+        @Query("date") date: String,
+    ): List<AppointmentDto>
+
+    @PATCH("appointments/{id}/status")
+    suspend fun updateAppointmentStatus(
+        @Path("id") appointmentId: UUID,
+        @Body request: UpdateAppointmentStatusRequest,
+    ): AppointmentDto
+
+    @GET("staff-members/{id}")
+    suspend fun getStaffMember(
+        @Path("id") staffMemberId: UUID,
+    ): StaffMemberDto
 
     @GET("patients/{patientId}/appointments")
     suspend fun getPatientAppointments(
