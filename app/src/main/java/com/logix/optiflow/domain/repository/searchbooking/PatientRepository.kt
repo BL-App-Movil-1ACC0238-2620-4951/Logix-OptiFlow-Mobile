@@ -2,6 +2,7 @@ package com.logix.optiflow.domain.repository.searchbooking
 
 import com.logix.optiflow.domain.model.searchbooking.Patient
 import com.logix.optiflow.domain.model.searchbooking.PatientSession
+import java.util.UUID
 
 interface PatientRepository {
     suspend fun register(
@@ -16,6 +17,10 @@ interface PatientRepository {
         email: String,
         password: String,
     ): Result<PatientSession>
+
+    suspend fun searchPatients(): Result<List<Patient>>
+
+    suspend fun getPatient(id: UUID): Result<Patient>
 
     suspend fun getSession(): PatientSession?
 

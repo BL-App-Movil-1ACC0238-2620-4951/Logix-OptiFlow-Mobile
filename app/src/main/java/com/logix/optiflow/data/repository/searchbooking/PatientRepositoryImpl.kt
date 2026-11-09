@@ -10,6 +10,7 @@ import com.logix.optiflow.data.remote.safeApiCall
 import com.logix.optiflow.domain.model.searchbooking.Patient
 import com.logix.optiflow.domain.model.searchbooking.PatientSession
 import com.logix.optiflow.domain.repository.searchbooking.PatientRepository
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -76,6 +77,12 @@ class PatientRepositoryImpl @Inject constructor(
             )
             session
         }
+
+    override suspend fun searchPatients(): Result<List<Patient>> =
+        safeApiCall { api.searchPatients().map { it.toDomain() } }
+
+    override suspend fun getPatient(id: UUID): Result<Patient> =
+        safeApiCall { api.getPatient(id).toDomain() }
 
     override suspend fun getSession(): PatientSession? =
         sessionStore.read().also { AuthTokenHolder.token = it?.token }

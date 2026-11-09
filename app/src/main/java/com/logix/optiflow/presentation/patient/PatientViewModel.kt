@@ -2,15 +2,15 @@ package com.logix.optiflow.presentation.patient
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.logix.optiflow.data.remote.api.searchbooking.SearchBookingApi
-import com.logix.optiflow.data.remote.dto.clinical.ClinicalRecordDto
-import com.logix.optiflow.data.remote.dto.production.WorkOrderDto
-import com.logix.optiflow.data.remote.dto.searchbooking.BookAppointmentRequest
-import com.logix.optiflow.data.remote.dto.searchbooking.TimeSlotDto
-import com.logix.optiflow.data.remote.dto.searchbooking.UpdateAppointmentStatusRequest
 import com.logix.optiflow.data.remote.toUserMessage
+import com.logix.optiflow.domain.model.clinical.ClinicalRecord
+import com.logix.optiflow.domain.model.production.WorkOrder
 import com.logix.optiflow.domain.model.searchbooking.OpticalStore
 import com.logix.optiflow.domain.model.searchbooking.PatientSession
+import com.logix.optiflow.domain.model.searchbooking.TimeSlot
+import com.logix.optiflow.domain.repository.clinical.ClinicalRecordRepository
+import com.logix.optiflow.domain.repository.production.WorkOrderRepository
+import com.logix.optiflow.domain.repository.searchbooking.AppointmentRepository
 import com.logix.optiflow.domain.repository.searchbooking.PatientRepository
 import com.logix.optiflow.domain.usecase.searchbooking.GetOpticalStoresUseCase
 import com.logix.optiflow.domain.usecase.searchbooking.GetPatientAppointmentsUseCase
@@ -135,7 +135,9 @@ class PatientViewModel @Inject constructor(
     private val patientRepository: PatientRepository,
     private val getPatientAppointments: GetPatientAppointmentsUseCase,
     private val getOpticalStores: GetOpticalStoresUseCase,
-    private val api: SearchBookingApi,
+    private val appointmentRepository: AppointmentRepository,
+    private val workOrderRepository: WorkOrderRepository,
+    private val clinicalRecordRepository: ClinicalRecordRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PatientUiState())
@@ -161,13 +163,13 @@ class PatientViewModel @Inject constructor(
             val ordersJob =
                 async {
                     session?.let { s ->
-                        runCatching { api.getPatientWorkOrders(s.patientId) }.getOrDefault(emptyList())
+                        workOrderRepository.getPatientWorkOrders(s.patientId).getOrDefault(emptyList())
                     }.orEmpty()
                 }
             val recordsJob =
                 async {
                     session?.let { s ->
-                        runCatching { api.getPatientClinicalRecords(s.patientId) }.getOrDefault(emptyList())
+                        clinicalRecordRepository.getPatientRecords(s.patientId).getOrDefault(emptyList())
                     }.orEmpty()
                 }
             val stores = storesJob.await()
@@ -215,7 +217,7 @@ class PatientViewModel @Inject constructor(
     fun cancelAppointment(id: String) {
         if (appointment(id)?.fromApi == true) {
             viewModelScope.launch {
-                runCatching { api.updateAppointmentStatus(UUID.fromString(id), CANCEL_REQUEST) }
+                appointmentRepository.cancelAppointment(UUID.fromString(id))
                     .onSuccess { refresh() }
             }
         }
@@ -231,10 +233,8 @@ class PatientViewModel @Inject constructor(
     }
 
     /** Horarios disponibles de una óptica para reprogramar una cita. */
-    suspend fun availableSlots(storeId: UUID): List<TimeSlotDto> =
-        runCatching { api.getTimeSlots(storeId) }
-            .getOrDefault(emptyList())
-            .filter { it.status.equals("AVAILABLE", ignoreCase = true) }
+    suspend fun availableSlots(storeId: UUID): List<TimeSlot> =
+        appointmentRepository.getAvailability(storeId).getOrDefault(emptyList())
 
     /**
      * Reprograma una cita: primero reserva el nuevo horario y luego cancela la cita anterior, para no
@@ -243,11 +243,8 @@ class PatientViewModel @Inject constructor(
     fun reschedule(appointmentId: String, storeId: UUID, timeSlotId: UUID, onDone: (String?) -> Unit) {
         viewModelScope.launch {
             val result =
-                runCatching {
-                    val session = patientRepository.getSession() ?: error("Inicia sesión para reprogramar tu cita.")
-                    api.bookAppointment(BookAppointmentRequest(session.patientId, storeId, timeSlotId))
-                    api.updateAppointmentStatus(UUID.fromString(appointmentId), CANCEL_REQUEST)
-                }
+                appointmentRepository.bookAppointment(storeId, timeSlotId)
+                    .mapCatching { appointmentRepository.cancelAppointment(UUID.fromString(appointmentId)).getOrThrow() }
             onDone(result.exceptionOrNull()?.toUserMessage())
             if (result.isSuccess) refresh()
         }
@@ -272,7 +269,7 @@ class PatientViewModel @Inject constructor(
             else -> AppointmentStatus.PENDING
         }
 
-    private fun toOrderUi(dto: WorkOrderDto): OrderUi {
+    private fun toOrderUi(dto: WorkOrder): OrderUi {
         val step =
             when (dto.status.uppercase(Locale.US)) {
                 "PENDING" -> 1
@@ -287,9 +284,9 @@ class PatientViewModel @Inject constructor(
                 ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
                 ?.let { DateTimeFormatter.ofPattern("d 'de' MMMM", es).format(it) }
                 ?: "por confirmar"
-        val lens = dto.lenses?.firstOrNull()?.specifications ?: "Lentes monofocales con antirreflejo"
+        val lens = dto.lenses.firstOrNull()?.specifications ?: "Lentes monofocales con antirreflejo"
         val history =
-            dto.statusHistory.orEmpty().mapNotNull { change -> change.changedAt?.let(::shortDateTime) }
+            dto.statusHistory.mapNotNull { change -> change.changedAt?.let(::shortDateTime) }
         return OrderUi(
             id = dto.id.toString(),
             code = "OF-" + dto.id.toString().take(4).uppercase(Locale.US),
@@ -305,7 +302,7 @@ class PatientViewModel @Inject constructor(
         )
     }
 
-    private fun toHistory(dto: ClinicalRecordDto): HistoryEntryUi =
+    private fun toHistory(dto: ClinicalRecord): HistoryEntryUi =
         HistoryEntryUi(
             date =
                 dto.examinationDate
@@ -318,7 +315,7 @@ class PatientViewModel @Inject constructor(
             professional = "Dra. Fernanda Soto",
         )
 
-    private fun latestPrescription(records: List<ClinicalRecordDto>, name: String): PrescriptionUi? {
+    private fun latestPrescription(records: List<ClinicalRecord>, name: String): PrescriptionUi? {
         val record =
             records.filter { it.prescription != null }.maxByOrNull { it.examinationDate ?: Instant.EPOCH }
                 ?: return null
@@ -383,7 +380,6 @@ class PatientViewModel @Inject constructor(
     }
 
     companion object {
-        private val CANCEL_REQUEST = UpdateAppointmentStatusRequest(status = "CANCELLED")
 
         fun demoAppointments(): List<AppointmentUi> =
             listOf(

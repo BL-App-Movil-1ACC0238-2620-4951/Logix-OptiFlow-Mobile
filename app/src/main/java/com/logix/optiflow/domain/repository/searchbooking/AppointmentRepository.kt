@@ -2,6 +2,7 @@ package com.logix.optiflow.domain.repository.searchbooking
 
 import com.logix.optiflow.domain.model.searchbooking.Appointment
 import com.logix.optiflow.domain.model.searchbooking.TimeSlot
+import java.time.LocalDate
 import java.util.UUID
 
 interface AppointmentRepository {
@@ -13,4 +14,9 @@ interface AppointmentRepository {
     ): Result<Appointment>
 
     suspend fun getPatientAppointments(patientId: UUID): Result<List<Appointment>>
+
+    /** Citas de una óptica en un día (agenda del personal). */
+    suspend fun getStoreAgenda(opticalStoreId: UUID, date: LocalDate): Result<List<Appointment>>
+
+    suspend fun cancelAppointment(appointmentId: UUID): Result<Unit>
 }
