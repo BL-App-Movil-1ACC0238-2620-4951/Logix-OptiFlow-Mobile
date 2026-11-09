@@ -1,7 +1,8 @@
 package com.logix.optiflow.data.remote
 
 import com.logix.optiflow.data.remote.dto.ApiErrorDto
-import com.logix.optiflow.di.NetworkModule
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import retrofit2.HttpException
 
 /**
@@ -19,6 +20,9 @@ private val knownMessages =
         "Authentication is required." to "Inicia sesión para continuar.",
     )
 
+private val errorAdapter =
+    Moshi.Builder().add(KotlinJsonAdapterFactory()).build().adapter(ApiErrorDto::class.java)
+
 private fun messageForStatus(code: Int): String =
     when (code) {
         400 -> "Revisa los datos ingresados."
@@ -35,7 +39,7 @@ fun Throwable.toUserMessage(): String {
         val body = response()?.errorBody()?.string()
         val apiMessage =
             body?.takeIf { it.isNotBlank() }?.let {
-                runCatching { NetworkModule.moshi().adapter(ApiErrorDto::class.java).fromJson(it) }.getOrNull()?.message
+                runCatching { errorAdapter.fromJson(it) }.getOrNull()?.message
             }
         return apiMessage?.let { knownMessages[it.trim()] } ?: messageForStatus(code())
     }

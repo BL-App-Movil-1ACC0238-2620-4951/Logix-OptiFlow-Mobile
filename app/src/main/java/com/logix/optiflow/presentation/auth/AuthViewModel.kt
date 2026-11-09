@@ -7,6 +7,8 @@ import com.logix.optiflow.domain.model.searchbooking.PatientSession
 import com.logix.optiflow.domain.usecase.searchbooking.GetPatientSessionUseCase
 import com.logix.optiflow.domain.usecase.searchbooking.LoginUseCase
 import com.logix.optiflow.domain.usecase.searchbooking.RegisterPatientUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,7 +35,8 @@ data class AuthUiState(
     val authenticatedAs: UserRole? = null,
 )
 
-class AuthViewModel(
+@HiltViewModel
+class AuthViewModel @Inject constructor(
     private val registerPatient: RegisterPatientUseCase,
     private val login: LoginUseCase,
     private val getPatientSession: GetPatientSessionUseCase,

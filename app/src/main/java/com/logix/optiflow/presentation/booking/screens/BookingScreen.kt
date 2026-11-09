@@ -37,10 +37,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.logix.optiflow.R
-import com.logix.optiflow.presentation.ViewModelFactories
 import com.logix.optiflow.presentation.booking.BookingUiState
 import com.logix.optiflow.presentation.booking.BookingViewModel
 import com.logix.optiflow.presentation.booking.SlotOption
@@ -73,15 +72,14 @@ import com.logix.optiflow.presentation.theme.Slate600
 import com.logix.optiflow.presentation.theme.White
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-import java.util.UUID
 
 private val es = Locale("es", "PE")
 private val Ink = Color(0xFF111827)
 private val SoftPanel = Color(0xFFF4F6FD)
 
 @Composable
-fun BookingScreen(nav: NavController, storeId: UUID?) {
-    val vm: BookingViewModel = viewModel(factory = ViewModelFactories.booking(storeId))
+fun BookingScreen(nav: NavController) {
+    val vm: BookingViewModel = hiltViewModel()
     val state by vm.uiState.collectAsState()
     val patientVm = patientViewModel()
 

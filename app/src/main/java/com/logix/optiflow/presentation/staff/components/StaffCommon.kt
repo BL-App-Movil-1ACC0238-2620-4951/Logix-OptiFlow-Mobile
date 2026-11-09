@@ -36,10 +36,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.logix.optiflow.R
-import com.logix.optiflow.presentation.ViewModelFactories
 import com.logix.optiflow.presentation.navigation.goStaffTab
 import com.logix.optiflow.presentation.shared.components.HSpace
 import com.logix.optiflow.presentation.shared.components.LIcon
@@ -73,7 +72,7 @@ val StaffIndigoText = Color(0xFF1E3A8A)
 @Composable
 fun staffViewModel(): StaffViewModel {
     val activity = LocalContext.current as ComponentActivity
-    return viewModel(viewModelStoreOwner = activity, factory = ViewModelFactories.staff)
+    return hiltViewModel(viewModelStoreOwner = activity)
 }
 
 /** Pantalla del personal: cabecera, contenido desplazable y barra inferior opcional. */

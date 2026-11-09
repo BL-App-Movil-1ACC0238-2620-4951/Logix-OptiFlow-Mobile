@@ -6,14 +6,18 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.flow.first
 
 private val Context.notificationReadDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "notification_read",
 )
 
-class NotificationReadStore(
-    context: Context,
+@Singleton
+class NotificationReadStore @Inject constructor(
+    @ApplicationContext context: Context,
 ) {
     private val dataStore = context.notificationReadDataStore
 

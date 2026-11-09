@@ -7,7 +7,10 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.logix.optiflow.domain.model.searchbooking.PatientSession
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.UUID
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
@@ -15,8 +18,9 @@ private val Context.patientSessionDataStore: DataStore<Preferences> by preferenc
     name = "patient_session",
 )
 
-class PatientSessionStore(
-    context: Context,
+@Singleton
+class PatientSessionStore @Inject constructor(
+    @ApplicationContext context: Context,
 ) {
     private val dataStore = context.patientSessionDataStore
 

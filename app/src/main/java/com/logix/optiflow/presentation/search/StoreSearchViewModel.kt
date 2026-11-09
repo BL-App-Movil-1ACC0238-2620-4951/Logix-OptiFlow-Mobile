@@ -6,6 +6,8 @@ import com.logix.optiflow.data.remote.toUserMessage
 import com.logix.optiflow.domain.model.searchbooking.OpticalStore
 import com.logix.optiflow.domain.usecase.searchbooking.GetOpticalStoresUseCase
 import com.logix.optiflow.domain.usecase.searchbooking.SearchOpticalStoresUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,7 +25,8 @@ data class StoreSearchUiState(
     val errorMessage: String? = null,
 )
 
-class StoreSearchViewModel(
+@HiltViewModel
+class StoreSearchViewModel @Inject constructor(
     private val getOpticalStores: GetOpticalStoresUseCase,
     private val searchOpticalStores: SearchOpticalStoresUseCase,
 ) : ViewModel() {

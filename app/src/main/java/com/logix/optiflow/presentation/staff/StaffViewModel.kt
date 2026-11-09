@@ -13,6 +13,7 @@ import com.logix.optiflow.data.remote.dto.production.WorkOrderDto
 import com.logix.optiflow.data.remote.dto.searchbooking.AppointmentDto
 import com.logix.optiflow.data.remote.dto.searchbooking.PatientDto
 import com.logix.optiflow.domain.usecase.searchbooking.GetPatientSessionUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -22,6 +23,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.UUID
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -48,7 +50,8 @@ data class StaffUiState(
  * `GET /work-orders` y la agenda del día de `GET /appointments` de la óptica del usuario; el
  * inventario usa datos de demostración.
  */
-class StaffViewModel(
+@HiltViewModel
+class StaffViewModel @Inject constructor(
     private val api: SearchBookingApi,
     private val getSession: GetPatientSessionUseCase,
 ) : ViewModel() {
