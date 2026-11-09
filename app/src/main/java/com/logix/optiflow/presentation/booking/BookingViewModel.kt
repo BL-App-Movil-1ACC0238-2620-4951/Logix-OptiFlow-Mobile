@@ -57,6 +57,7 @@ data class BookingUiState(
     val session: PatientSession? = null,
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
+    val confirmed: Boolean = false,
 ) {
     val selectedStore: StoreOption? get() = stores.getOrNull(selectedStoreIndex)
     val weekDays: List<LocalDate> get() = (0L..4L).map { weekStart.plusDays(it) }
@@ -188,8 +189,10 @@ class BookingViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             bookAppointment(store.id, slot.id)
-                .onSuccess {
-                    _uiState.update { it.copy(isLoading = false, step = 4) }
+                .onSuccess { appointment ->
+                    _uiState.update {
+                        it.copy(isLoading = false, step = 4, confirmed = appointment.status.equals("CONFIRMED", ignoreCase = true))
+                    }
                     onBooked()
                 }.onFailure { error ->
                     _uiState.update { it.copy(isLoading = false, errorMessage = error.toUserMessage()) }

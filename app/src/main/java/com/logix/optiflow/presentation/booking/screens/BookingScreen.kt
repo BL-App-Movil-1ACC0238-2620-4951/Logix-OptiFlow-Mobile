@@ -475,7 +475,11 @@ private fun ColumnScope.DoneStep(state: BookingUiState, onAppointments: () -> Un
     )
     VSpace(10.dp)
     Txt(
-        "La óptica revisará la solicitud y te notificará el tipo de atención.",
+        if (state.confirmed) {
+            "Te esperamos en la óptica. Llega 10 minutos antes de tu cita."
+        } else {
+            "La óptica revisará la solicitud y te notificará el tipo de atención."
+        },
         14,
         color = Slate500,
         align = TextAlign.Center,
@@ -506,10 +510,10 @@ private fun ColumnScope.DoneStep(state: BookingUiState, onAppointments: () -> Un
         HSpace(14.dp)
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Pill(
-                "Pendiente de confirmación",
+                if (state.confirmed) "Confirmada" else "Pendiente de confirmación",
                 Color(0xFFEEF2FF),
                 Electric,
-                icon = R.drawable.lucide_ic_clock,
+                icon = if (state.confirmed) R.drawable.lucide_ic_check else R.drawable.lucide_ic_clock,
                 size = 11,
                 weight = FontWeight.Medium,
                 padding = PaddingValues(horizontal = 10.dp, vertical = 3.dp),
