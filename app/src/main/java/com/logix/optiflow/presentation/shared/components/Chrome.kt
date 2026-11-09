@@ -126,7 +126,7 @@ fun PatientBottomBar(selected: PatientTab?, onSelect: (PatientTab) -> Unit) {
 }
 
 @Composable
-fun StaffBottomBar(selected: StaffTab?, onSelect: (StaffTab) -> Unit) {
+fun StaffBottomBar(selected: StaffTab?, tabs: List<StaffTab> = StaffTab.entries, onSelect: (StaffTab) -> Unit) {
     Column(Modifier.fillMaxWidth().background(White)) {
         Divider(StaffChip)
         Row(
@@ -138,7 +138,7 @@ fun StaffBottomBar(selected: StaffTab?, onSelect: (StaffTab) -> Unit) {
                     .padding(horizontal = 10.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            StaffTab.entries.forEach { tab ->
+            tabs.forEach { tab ->
                 val active = tab == selected
                 Column(
                     modifier =

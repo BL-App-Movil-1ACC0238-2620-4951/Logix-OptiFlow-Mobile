@@ -23,6 +23,10 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,6 +55,7 @@ import com.logix.optiflow.presentation.shared.components.Txt
 import com.logix.optiflow.presentation.shared.components.card
 import com.logix.optiflow.presentation.shared.components.tap
 import com.logix.optiflow.presentation.staff.StaffViewModel
+import com.logix.optiflow.presentation.staff.tabs
 import com.logix.optiflow.presentation.theme.Electric
 import com.logix.optiflow.presentation.theme.Inter
 import com.logix.optiflow.presentation.theme.Lavender
@@ -86,10 +91,13 @@ fun StaffScreen(
     overlay: @Composable BoxScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val vm = staffViewModel()
+    val role by vm.uiState.collectAsState().let { state -> derivedStateOf { state.value.role } }
+    LaunchedEffect(Unit) { vm.loadIfNeeded() }
     ScreenFrame(
         background = ScreenBg,
         topBar = topBar,
-        bottomBar = { if (showBottomBar) StaffBottomBar(tab) { nav.goStaffTab(it) } },
+        bottomBar = { if (showBottomBar) StaffBottomBar(tab, role.tabs) { nav.goStaffTab(it) } },
     ) {
         Box(Modifier.fillMaxSize()) {
             Column(

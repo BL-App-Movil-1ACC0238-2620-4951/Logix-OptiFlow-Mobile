@@ -8,9 +8,11 @@ import com.logix.optiflow.data.demo.DemoData
 import com.logix.optiflow.data.demo.ProductionOrder
 import com.logix.optiflow.data.demo.ProductionStage
 import com.logix.optiflow.data.demo.StaffPatient
+import com.logix.optiflow.data.remote.SessionEvents
 import com.logix.optiflow.domain.model.production.WorkOrder
 import com.logix.optiflow.domain.model.searchbooking.Appointment
 import com.logix.optiflow.domain.model.searchbooking.Patient
+import com.logix.optiflow.domain.model.searchbooking.StaffRole
 import com.logix.optiflow.domain.repository.clinical.ClinicalRecordRepository
 import com.logix.optiflow.domain.repository.production.WorkOrderRepository
 import com.logix.optiflow.domain.repository.searchbooking.AppointmentRepository
@@ -35,6 +37,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class StaffUiState(
+    val role: StaffRole? = null,
     val patients: List<StaffPatient> = DemoData.staffPatients,
     val patientsFromApi: Boolean = false,
     val newPatientsThisMonth: Int = 0,
@@ -62,6 +65,7 @@ class StaffViewModel @Inject constructor(
     private val workOrderRepository: WorkOrderRepository,
     private val clinicalRecordRepository: ClinicalRecordRepository,
     private val getSession: GetPatientSessionUseCase,
+    sessionEvents: SessionEvents,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(StaffUiState())
@@ -70,10 +74,39 @@ class StaffViewModel @Inject constructor(
     // Nombres ya consultados con `GET /patients/{id}`, compartidos por la agenda y las órdenes.
     private val patientNames = mutableMapOf<UUID, String>()
 
+    // El ViewModel vive en la Activity: se vuelve a cargar cuando otra cuenta inicia sesión.
+    private var loaded = false
+
     init {
-        refreshPatients()
-        refreshProduction()
-        refreshAgenda()
+        loadIfNeeded()
+        viewModelScope.launch { sessionEvents.expired.collect { reset() } }
+    }
+
+    fun loadIfNeeded() {
+        if (loaded) return
+        loaded = true
+        viewModelScope.launch {
+            val role = getSession()?.staffRole
+            _uiState.update { it.copy(role = role) }
+            // Solo se piden los datos que el rol puede ver; el resto respondería 403.
+            if (role.can(StaffFeature.PATIENTS)) refreshPatients()
+            if (role.can(StaffFeature.PRODUCTION)) refreshProduction()
+            if (role.can(StaffFeature.AGENDA)) refreshAgenda()
+        }
+    }
+
+    fun clearSession(onDone: () -> Unit) {
+        viewModelScope.launch {
+            patientRepository.clearSession()
+            reset()
+            onDone()
+        }
+    }
+
+    private fun reset() {
+        loaded = false
+        patientNames.clear()
+        _uiState.value = StaffUiState()
     }
 
     fun refreshPatients() {

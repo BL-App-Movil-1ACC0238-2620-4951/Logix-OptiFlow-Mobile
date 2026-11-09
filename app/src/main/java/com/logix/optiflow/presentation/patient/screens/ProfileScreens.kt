@@ -129,10 +129,6 @@ fun ProfileScreen(nav: NavController) {
                 MenuRow(R.drawable.lucide_ic_settings, "Configuración", null) { nav.navigate(Routes.P_SETTINGS) }
                 Divider(Lavender)
                 MenuRow(R.drawable.lucide_ic_circle_question_mark, "Ayuda y soporte", null) { nav.navigate(Routes.P_SETTINGS) }
-                Divider(Lavender)
-                MenuRow(R.drawable.lucide_ic_briefcase, "Vista personal de óptica", "Cambiar al rol de personal") {
-                    nav.switchRoot(Routes.S_HOME)
-                }
             }
             VSpace(18.dp)
             SolidButton(
