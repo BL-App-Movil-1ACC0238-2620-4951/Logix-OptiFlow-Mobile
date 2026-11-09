@@ -3,6 +3,8 @@ package com.logix.optiflow.di
 import com.logix.optiflow.BuildConfig
 import com.logix.optiflow.data.remote.AuthInterceptor
 import com.logix.optiflow.data.remote.AuthTokenHolder
+import com.logix.optiflow.data.remote.SessionEvents
+import com.logix.optiflow.data.remote.UnauthorizedInterceptor
 import com.logix.optiflow.data.remote.api.searchbooking.SearchBookingApi
 import com.logix.optiflow.data.remote.json.InstantJsonAdapter
 import com.logix.optiflow.data.remote.json.UuidJsonAdapter
@@ -36,7 +38,7 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(): OkHttpClient {
+    fun provideOkHttpClient(sessionEvents: SessionEvents): OkHttpClient {
         val logging =
             HttpLoggingInterceptor().apply {
                 level =
@@ -52,6 +54,7 @@ object NetworkModule {
             .readTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .writeTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .addInterceptor(AuthInterceptor { AuthTokenHolder.token })
+            .addInterceptor(UnauthorizedInterceptor(sessionEvents))
             .addInterceptor(logging)
             .build()
     }
