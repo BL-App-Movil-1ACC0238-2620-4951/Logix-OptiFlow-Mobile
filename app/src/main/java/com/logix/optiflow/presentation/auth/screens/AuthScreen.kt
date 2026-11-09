@@ -42,9 +42,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.logix.optiflow.R
-import com.logix.optiflow.presentation.ViewModelFactories
 import com.logix.optiflow.presentation.auth.AuthUiState
 import com.logix.optiflow.presentation.auth.AuthViewModel
 import com.logix.optiflow.presentation.auth.UserRole
@@ -80,7 +79,7 @@ private val CtaNavy = Color(0xFF1C3C78)
 
 @Composable
 fun AuthScreen(onAuthenticated: (UserRole) -> Unit) {
-    val viewModel: AuthViewModel = viewModel(factory = ViewModelFactories.auth)
+    val viewModel: AuthViewModel = hiltViewModel()
     val state by viewModel.uiState.collectAsState()
 
     LaunchedEffect(state.authenticatedAs) {

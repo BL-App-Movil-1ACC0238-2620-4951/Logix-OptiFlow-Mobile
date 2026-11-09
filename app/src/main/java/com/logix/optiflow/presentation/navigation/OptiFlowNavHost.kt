@@ -4,19 +4,16 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.logix.optiflow.di.SearchBookingModule
 import com.logix.optiflow.presentation.auth.UserRole
 import com.logix.optiflow.presentation.auth.screens.AuthScreen
 import com.logix.optiflow.presentation.booking.screens.BookingScreen
@@ -57,33 +54,21 @@ import com.logix.optiflow.presentation.staff.screens.StockManagementScreen
 import com.logix.optiflow.presentation.staff.screens.VisualEvaluationScreen
 import com.logix.optiflow.presentation.staff.screens.WorkOrderScreen
 import com.logix.optiflow.presentation.theme.LoginGradientTop
-import java.util.UUID
 
 private const val SETTINGS_PATTERN = "p/settings?staff={staff}"
 private const val BOOK_ARG = "storeId"
 
 @Composable
-fun OptiFlowNavHost() {
+fun OptiFlowNavHost(sessionViewModel: SessionViewModel = hiltViewModel()) {
     val navController = rememberNavController()
-    var start by remember { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(Unit) {
-        val session = runCatching { SearchBookingModule.getPatientSessionUseCase() }.getOrNull()
-        start =
-            when {
-                session?.token.isNullOrBlank() -> Routes.AUTH
-                session?.isPatient == false -> Routes.S_HOME
-                else -> Routes.P_HOME
-            }
-    }
-
-    val startDestination = start
-    if (startDestination == null) {
+    val startDestination by sessionViewModel.startDestination.collectAsState()
+    val start = startDestination
+    if (start == null) {
         Box(Modifier.fillMaxSize().background(LoginGradientTop))
         return
     }
 
-    NavHost(navController = navController, startDestination = startDestination) {
+    NavHost(navController = navController, startDestination = start) {
         composable(Routes.AUTH) {
             AuthScreen(
                 onAuthenticated = { role ->
@@ -114,10 +99,7 @@ fun OptiFlowNavHost() {
                         defaultValue = null
                     },
                 ),
-        ) { entry ->
-            val storeId = entry.arguments?.getString(BOOK_ARG)?.let { runCatching { UUID.fromString(it) }.getOrNull() }
-            BookingScreen(navController, storeId)
-        }
+        ) { BookingScreen(navController) }
         composable(Routes.P_ORDERS) { MyOrdersScreen(navController) }
         composable(Routes.P_ORDER) { OrderTrackingScreen(navController, it.arg("id")) }
         composable(Routes.P_PROFILE) { ProfileScreen(navController) }

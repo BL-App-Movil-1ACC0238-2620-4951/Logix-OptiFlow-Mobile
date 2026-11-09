@@ -8,10 +8,13 @@ import com.logix.optiflow.domain.model.searchbooking.Appointment
 import com.logix.optiflow.domain.model.searchbooking.TimeSlot
 import com.logix.optiflow.domain.repository.searchbooking.AppointmentRepository
 import java.util.UUID
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-class AppointmentRepositoryImpl(
+@Singleton
+class AppointmentRepositoryImpl @Inject constructor(
     private val api: SearchBookingApi,
     private val sessionStore: PatientSessionStore,
 ) : AppointmentRepository {

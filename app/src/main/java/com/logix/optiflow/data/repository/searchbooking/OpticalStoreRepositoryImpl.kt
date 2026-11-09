@@ -5,10 +5,13 @@ import com.logix.optiflow.data.remote.api.searchbooking.SearchBookingApi
 import com.logix.optiflow.domain.model.searchbooking.OpticalStore
 import com.logix.optiflow.domain.model.searchbooking.OpticalStoreSearchResult
 import com.logix.optiflow.domain.repository.searchbooking.OpticalStoreRepository
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-class OpticalStoreRepositoryImpl(
+@Singleton
+class OpticalStoreRepositoryImpl @Inject constructor(
     private val api: SearchBookingApi,
 ) : OpticalStoreRepository {
 

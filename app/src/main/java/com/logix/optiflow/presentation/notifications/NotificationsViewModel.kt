@@ -7,10 +7,12 @@ import com.logix.optiflow.domain.model.notification.NotificationItem
 import com.logix.optiflow.domain.repository.notification.NotificationRepository
 import com.logix.optiflow.domain.usecase.notification.GetNotificationsUseCase
 import com.logix.optiflow.domain.usecase.searchbooking.GetPatientSessionUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,7 +36,8 @@ data class NotificationsUiState(
     val errorMessage: String? = null,
 )
 
-class NotificationsViewModel(
+@HiltViewModel
+class NotificationsViewModel @Inject constructor(
     private val getPatientSession: GetPatientSessionUseCase,
     private val getNotifications: GetNotificationsUseCase,
     private val notificationRepository: NotificationRepository,

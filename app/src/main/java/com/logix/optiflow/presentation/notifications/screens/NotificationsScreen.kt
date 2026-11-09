@@ -21,11 +21,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.logix.optiflow.R
 import com.logix.optiflow.domain.model.notification.NotificationType
-import com.logix.optiflow.presentation.ViewModelFactories
 import com.logix.optiflow.presentation.navigation.Routes
 import com.logix.optiflow.presentation.notifications.NotificationRowUi
 import com.logix.optiflow.presentation.notifications.NotificationsViewModel
@@ -50,7 +49,7 @@ import com.logix.optiflow.presentation.theme.Slate500
 
 @Composable
 fun NotificationsScreen(nav: NavController) {
-    val viewModel: NotificationsViewModel = viewModel(factory = ViewModelFactories.notifications)
+    val viewModel: NotificationsViewModel = hiltViewModel()
     val state by viewModel.uiState.collectAsState()
 
     PatientScreen(

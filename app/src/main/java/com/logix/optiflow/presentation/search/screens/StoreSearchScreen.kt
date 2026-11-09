@@ -41,11 +41,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.logix.optiflow.R
 import com.logix.optiflow.domain.model.searchbooking.OpticalStore
-import com.logix.optiflow.presentation.ViewModelFactories
 import com.logix.optiflow.presentation.navigation.Routes
 import com.logix.optiflow.presentation.patient.components.PatientScreen
 import com.logix.optiflow.presentation.search.StoreSearchViewModel
@@ -83,7 +82,7 @@ private val firstSlots = listOf("Hoy · 10:30", "Hoy · 12:00", "Mañana · 09:0
 
 @Composable
 fun StoreSearchScreen(nav: NavController) {
-    val viewModel: StoreSearchViewModel = viewModel(factory = ViewModelFactories.storeSearch)
+    val viewModel: StoreSearchViewModel = hiltViewModel()
     val state by viewModel.uiState.collectAsState()
     var chip by remember { mutableIntStateOf(0) }
 

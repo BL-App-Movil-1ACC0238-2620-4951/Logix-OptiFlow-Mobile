@@ -2,8 +2,9 @@ package com.logix.optiflow.domain.usecase.searchbooking
 
 import com.logix.optiflow.domain.model.searchbooking.Patient
 import com.logix.optiflow.domain.repository.searchbooking.PatientRepository
+import javax.inject.Inject
 
-class RegisterPatientUseCase(
+class RegisterPatientUseCase @Inject constructor(
     private val repository: PatientRepository,
 ) {
     suspend operator fun invoke(

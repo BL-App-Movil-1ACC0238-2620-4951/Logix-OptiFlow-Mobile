@@ -9,10 +9,13 @@ import com.logix.optiflow.data.remote.dto.searchbooking.RegisterPatientRequest
 import com.logix.optiflow.domain.model.searchbooking.Patient
 import com.logix.optiflow.domain.model.searchbooking.PatientSession
 import com.logix.optiflow.domain.repository.searchbooking.PatientRepository
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-class PatientRepositoryImpl(
+@Singleton
+class PatientRepositoryImpl @Inject constructor(
     private val api: SearchBookingApi,
     private val sessionStore: PatientSessionStore,
 ) : PatientRepository {

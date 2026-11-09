@@ -14,12 +14,14 @@ import com.logix.optiflow.domain.model.searchbooking.PatientSession
 import com.logix.optiflow.domain.repository.searchbooking.PatientRepository
 import com.logix.optiflow.domain.usecase.searchbooking.GetOpticalStoresUseCase
 import com.logix.optiflow.domain.usecase.searchbooking.GetPatientAppointmentsUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.UUID
+import javax.inject.Inject
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -128,7 +130,8 @@ data class PatientUiState(
  * Estado compartido del paciente (citas, pedidos, historial y receta).
  * Usa la API cuando hay sesión; si el backend aún no tiene datos, muestra el contenido del prototipo.
  */
-class PatientViewModel(
+@HiltViewModel
+class PatientViewModel @Inject constructor(
     private val patientRepository: PatientRepository,
     private val getPatientAppointments: GetPatientAppointmentsUseCase,
     private val getOpticalStores: GetOpticalStoresUseCase,

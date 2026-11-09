@@ -1,5 +1,6 @@
 package com.logix.optiflow.presentation.booking
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.logix.optiflow.data.remote.toUserMessage
@@ -9,6 +10,7 @@ import com.logix.optiflow.domain.usecase.searchbooking.BookAppointmentUseCase
 import com.logix.optiflow.domain.usecase.searchbooking.GetOpticalStoresUseCase
 import com.logix.optiflow.domain.usecase.searchbooking.GetPatientSessionUseCase
 import com.logix.optiflow.domain.usecase.searchbooking.GetStoreAvailabilityUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
@@ -17,6 +19,7 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 import java.util.UUID
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -69,13 +72,17 @@ data class BookingUiState(
 }
 
 /** Flujo de reserva en 4 pasos: óptica → fecha/hora → confirmación → reserva enviada. */
-class BookingViewModel(
-    private val preselectedStoreId: UUID?,
+@HiltViewModel
+class BookingViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
     private val getOpticalStores: GetOpticalStoresUseCase,
     private val getAvailability: GetStoreAvailabilityUseCase,
     private val bookAppointment: BookAppointmentUseCase,
     private val getPatientSession: GetPatientSessionUseCase,
 ) : ViewModel() {
+
+    private val preselectedStoreId: UUID? =
+        savedStateHandle.get<String>("storeId")?.let { runCatching { UUID.fromString(it) }.getOrNull() }
 
     private val _uiState = MutableStateFlow(BookingUiState())
     val uiState: StateFlow<BookingUiState> = _uiState.asStateFlow()

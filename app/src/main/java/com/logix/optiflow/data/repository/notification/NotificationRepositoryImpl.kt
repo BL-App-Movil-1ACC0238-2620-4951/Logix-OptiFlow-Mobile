@@ -10,10 +10,13 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.UUID
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-class NotificationRepositoryImpl(
+@Singleton
+class NotificationRepositoryImpl @Inject constructor(
     private val api: SearchBookingApi,
     private val readStore: NotificationReadStore,
 ) : NotificationRepository {
