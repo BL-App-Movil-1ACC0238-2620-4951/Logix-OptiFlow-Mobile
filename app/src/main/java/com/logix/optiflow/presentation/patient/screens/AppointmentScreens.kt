@@ -42,6 +42,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.logix.optiflow.R
+import com.logix.optiflow.domain.model.STORE_ZONE
 import com.logix.optiflow.domain.model.searchbooking.TimeSlot
 import com.logix.optiflow.presentation.navigation.Routes
 import com.logix.optiflow.presentation.patient.AppointmentStatus
@@ -357,10 +358,10 @@ fun RescheduleScreen(nav: NavController, id: String) {
     val chosenDay = date?.let { Instant.ofEpochMilli(it).atZone(ZoneId.of("UTC")).toLocalDate() }
     LaunchedEffect(chosenDay) { if (live) time = -1 }
     val daySlots =
-        slots.filter { slot -> chosenDay == null || slot.startDateTime.atZone(ZoneId.systemDefault()).toLocalDate() == chosenDay }
+        slots.filter { slot -> chosenDay == null || slot.startDateTime.atZone(STORE_ZONE).toLocalDate() == chosenDay }
     val timeLabels =
         if (live) {
-            daySlots.map { DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault()).format(it.startDateTime) }
+            daySlots.map { DateTimeFormatter.ofPattern("HH:mm").withZone(STORE_ZONE).format(it.startDateTime) }
         } else {
             rescheduleTimes
         }

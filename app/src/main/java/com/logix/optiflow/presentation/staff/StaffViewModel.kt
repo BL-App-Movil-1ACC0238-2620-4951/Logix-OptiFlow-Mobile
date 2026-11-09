@@ -9,6 +9,7 @@ import com.logix.optiflow.data.demo.ProductionOrder
 import com.logix.optiflow.data.demo.ProductionStage
 import com.logix.optiflow.data.demo.StaffPatient
 import com.logix.optiflow.data.remote.SessionEvents
+import com.logix.optiflow.domain.model.STORE_ZONE
 import com.logix.optiflow.domain.model.production.WorkOrder
 import com.logix.optiflow.domain.model.searchbooking.Appointment
 import com.logix.optiflow.domain.model.searchbooking.Patient
@@ -25,7 +26,6 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.Period
 import java.time.YearMonth
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.UUID
@@ -114,9 +114,9 @@ class StaffViewModel @Inject constructor(
             val patients = patientRepository.searchPatients().getOrDefault(emptyList())
             if (patients.isNotEmpty()) {
                 patients.forEach { patientNames[it.id] = it.name }
-                val thisMonth = YearMonth.now()
+                val thisMonth = YearMonth.now(STORE_ZONE)
                 val newThisMonth =
-                    patients.count { p -> p.createdAt?.let { YearMonth.from(it.atZone(ZoneId.systemDefault())) } == thisMonth }
+                    patients.count { p -> p.createdAt?.let { YearMonth.from(it.atZone(STORE_ZONE)) } == thisMonth }
                 _uiState.update {
                     it.copy(
                         patients = patients.map(::toStaffPatient),
@@ -141,7 +141,7 @@ class StaffViewModel @Inject constructor(
         val age =
             dto.birthDate
                 ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
-                ?.let { Period.between(it, LocalDate.now()).years } ?: 0
+                ?.let { Period.between(it, LocalDate.now(STORE_ZONE)).years } ?: 0
         val since = dto.createdAt?.let { DATE_FORMAT.format(it) }
         return StaffPatient(
             id = dto.id.toString(),
@@ -172,7 +172,7 @@ class StaffViewModel @Inject constructor(
         if (session.isPatient) return emptyList()
         val storeId = staffMemberRepository.getStaffMember(session.patientId).getOrThrow().opticalStoreId
         val now = Instant.now()
-        return appointmentRepository.getStoreAgenda(storeId, LocalDate.now()).getOrThrow()
+        return appointmentRepository.getStoreAgenda(storeId, LocalDate.now(STORE_ZONE)).getOrThrow()
             .filter { it.status != "CANCELLED" }
             .map { appointment ->
                 toAgendaItem(appointment, patientName(appointment.patientId), now)
@@ -251,9 +251,9 @@ class StaffViewModel @Inject constructor(
 
     private companion object {
         const val WAITING_WINDOW_MINUTES = 15L
-        val TIME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
+        val TIME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm").withZone(STORE_ZONE)
         val DATE_FORMAT: DateTimeFormatter =
-            DateTimeFormatter.ofPattern("d MMM yyyy", Locale("es", "PE")).withZone(ZoneId.systemDefault())
+            DateTimeFormatter.ofPattern("d MMM yyyy", Locale("es", "PE")).withZone(STORE_ZONE)
     }
 
     private fun toProductionOrder(dto: WorkOrder, patientName: String): ProductionOrder {
@@ -266,7 +266,7 @@ class StaffViewModel @Inject constructor(
                 ?.let { date ->
                     when {
                         dto.delayed -> "Atrasada"
-                        date == LocalDate.now() -> "Entrega hoy"
+                        date == LocalDate.now(STORE_ZONE) -> "Entrega hoy"
                         else -> "Entrega " + date.format(DateTimeFormatter.ofPattern("d MMM", Locale("es", "PE"))).replace(".", "")
                     }
                 } ?: "Sin fecha"

@@ -3,6 +3,7 @@ package com.logix.optiflow.presentation.notifications
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.logix.optiflow.data.remote.toUserMessage
+import com.logix.optiflow.domain.model.STORE_ZONE
 import com.logix.optiflow.domain.model.notification.NotificationItem
 import com.logix.optiflow.domain.repository.notification.NotificationRepository
 import com.logix.optiflow.domain.usecase.notification.GetNotificationsUseCase
@@ -10,7 +11,6 @@ import com.logix.optiflow.domain.usecase.searchbooking.GetPatientSessionUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -100,7 +100,7 @@ class NotificationsViewModel @Inject constructor(
 
     private fun groupByDay(rows: List<NotificationRowUi>): List<NotificationSectionUi> {
         if (rows.isEmpty()) return emptyList()
-        val zone = ZoneId.systemDefault()
+        val zone = STORE_ZONE
         val today = LocalDate.now(zone)
         val yesterday = today.minusDays(1)
         val todayItems = mutableListOf<NotificationRowUi>()

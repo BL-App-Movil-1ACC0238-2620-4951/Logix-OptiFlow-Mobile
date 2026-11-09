@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.logix.optiflow.data.remote.toUserMessage
+import com.logix.optiflow.domain.model.STORE_ZONE
 import com.logix.optiflow.domain.model.searchbooking.PatientSession
 import com.logix.optiflow.domain.model.searchbooking.TimeSlot
 import com.logix.optiflow.domain.usecase.searchbooking.BookAppointmentUseCase
@@ -14,7 +15,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 import java.util.Locale
@@ -50,7 +50,7 @@ data class BookingUiState(
     val stores: List<StoreOption> = emptyList(),
     val selectedStoreIndex: Int = 0,
     val slots: List<SlotOption> = emptyList(),
-    val weekStart: LocalDate = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)),
+    val weekStart: LocalDate = LocalDate.now(STORE_ZONE).with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)),
     val selectedDate: LocalDate? = null,
     val selectedSlot: SlotOption? = null,
     val reason: String = "",
@@ -87,7 +87,7 @@ class BookingViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(BookingUiState())
     val uiState: StateFlow<BookingUiState> = _uiState.asStateFlow()
 
-    private val zone = ZoneId.systemDefault()
+    private val zone = STORE_ZONE
 
     init {
         viewModelScope.launch {
@@ -152,7 +152,7 @@ class BookingViewModel @Inject constructor(
                     demoMode = it.demoMode || apiSlots.isEmpty(),
                     selectedDate = firstDate,
                     weekStart =
-                        (firstDate ?: LocalDate.now()).with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)),
+                        (firstDate ?: LocalDate.now(STORE_ZONE)).with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)),
                     isLoading = false,
                 )
             }
@@ -209,7 +209,7 @@ class BookingViewModel @Inject constructor(
     }
 
     private fun demoSlots(): List<SlotOption> {
-        val monday = LocalDate.now().plusWeeks(1).with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        val monday = LocalDate.now(STORE_ZONE).plusWeeks(1).with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
         val times = listOf("09:00", "09:30", "10:30", "11:00", "15:00", "15:30", "16:00", "17:30")
         return (0L..4L).flatMap { offset ->
             times.map { SlotOption(id = null, date = monday.plusDays(offset), time = LocalTime.parse(it)) }

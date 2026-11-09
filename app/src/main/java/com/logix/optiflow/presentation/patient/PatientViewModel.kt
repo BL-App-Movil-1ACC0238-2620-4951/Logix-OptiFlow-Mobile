@@ -3,6 +3,7 @@ package com.logix.optiflow.presentation.patient
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.logix.optiflow.data.remote.toUserMessage
+import com.logix.optiflow.domain.model.STORE_ZONE
 import com.logix.optiflow.domain.model.clinical.ClinicalRecord
 import com.logix.optiflow.domain.model.production.WorkOrder
 import com.logix.optiflow.domain.model.searchbooking.OpticalStore
@@ -30,7 +31,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 private val es = Locale("es", "PE")
-private val zone: ZoneId = ZoneId.systemDefault()
+private val zone: ZoneId = STORE_ZONE
 
 enum class AppointmentStatus(val label: String) {
     CONFIRMED("Confirmada"),

@@ -3,11 +3,11 @@ package com.logix.optiflow.data.repository.notification
 import com.logix.optiflow.data.local.notification.NotificationReadStore
 import com.logix.optiflow.data.remote.api.searchbooking.SearchBookingApi
 import com.logix.optiflow.data.remote.safeApiCall
+import com.logix.optiflow.domain.model.STORE_ZONE
 import com.logix.optiflow.domain.model.notification.NotificationItem
 import com.logix.optiflow.domain.model.notification.NotificationType
 import com.logix.optiflow.domain.repository.notification.NotificationRepository
 import java.time.Instant
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.UUID
@@ -29,11 +29,11 @@ class NotificationRepositoryImpl @Inject constructor(
             }.getOrDefault(emptyList()).forEach { appt ->
                 val whenLabel =
                     DateTimeFormatter.ofPattern("EEEE", Locale("es", "PE"))
-                        .withZone(ZoneId.systemDefault())
+                        .withZone(STORE_ZONE)
                         .format(appt.startDateTime)
                 val timeLabel =
                     DateTimeFormatter.ofPattern("HH:mm", Locale("es", "PE"))
-                        .withZone(ZoneId.systemDefault())
+                        .withZone(STORE_ZONE)
                         .format(appt.startDateTime)
                 fromApi +=
                     NotificationItem(
