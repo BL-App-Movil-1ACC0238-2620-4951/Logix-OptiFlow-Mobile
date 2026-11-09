@@ -1,26 +1,26 @@
 package com.logix.optiflow.di
 
 import android.content.Context
-import com.logix.optiflow.data.local.NotificationReadStore
 import com.logix.optiflow.data.local.PatientSessionStore
-import com.logix.optiflow.data.repository.NotificationRepositoryImpl
+import com.logix.optiflow.data.local.notification.NotificationReadStore
 import com.logix.optiflow.data.remote.ApiClient
-import com.logix.optiflow.data.repository.AppointmentRepositoryImpl
-import com.logix.optiflow.data.repository.OpticalStoreRepositoryImpl
-import com.logix.optiflow.data.repository.PatientRepositoryImpl
-import com.logix.optiflow.domain.repository.AppointmentRepository
-import com.logix.optiflow.domain.repository.OpticalStoreRepository
-import com.logix.optiflow.domain.repository.NotificationRepository
-import com.logix.optiflow.domain.repository.PatientRepository
-import com.logix.optiflow.domain.usecase.GetNotificationsUseCase
-import com.logix.optiflow.domain.usecase.BookAppointmentUseCase
-import com.logix.optiflow.domain.usecase.GetOpticalStoresUseCase
-import com.logix.optiflow.domain.usecase.SearchOpticalStoresUseCase
-import com.logix.optiflow.domain.usecase.GetPatientSessionUseCase
-import com.logix.optiflow.domain.usecase.GetPatientAppointmentsUseCase
-import com.logix.optiflow.domain.usecase.GetStoreAvailabilityUseCase
-import com.logix.optiflow.domain.usecase.LoginUseCase
-import com.logix.optiflow.domain.usecase.RegisterPatientUseCase
+import com.logix.optiflow.data.repository.notification.NotificationRepositoryImpl
+import com.logix.optiflow.data.repository.searchbooking.AppointmentRepositoryImpl
+import com.logix.optiflow.data.repository.searchbooking.OpticalStoreRepositoryImpl
+import com.logix.optiflow.data.repository.searchbooking.PatientRepositoryImpl
+import com.logix.optiflow.domain.repository.notification.NotificationRepository
+import com.logix.optiflow.domain.repository.searchbooking.AppointmentRepository
+import com.logix.optiflow.domain.repository.searchbooking.OpticalStoreRepository
+import com.logix.optiflow.domain.repository.searchbooking.PatientRepository
+import com.logix.optiflow.domain.usecase.notification.GetNotificationsUseCase
+import com.logix.optiflow.domain.usecase.searchbooking.BookAppointmentUseCase
+import com.logix.optiflow.domain.usecase.searchbooking.GetOpticalStoresUseCase
+import com.logix.optiflow.domain.usecase.searchbooking.GetPatientAppointmentsUseCase
+import com.logix.optiflow.domain.usecase.searchbooking.GetPatientSessionUseCase
+import com.logix.optiflow.domain.usecase.searchbooking.GetStoreAvailabilityUseCase
+import com.logix.optiflow.domain.usecase.searchbooking.LoginUseCase
+import com.logix.optiflow.domain.usecase.searchbooking.RegisterPatientUseCase
+import com.logix.optiflow.domain.usecase.searchbooking.SearchOpticalStoresUseCase
 
 object SearchBookingModule {
 

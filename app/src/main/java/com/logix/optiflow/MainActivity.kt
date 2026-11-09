@@ -5,8 +5,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.logix.optiflow.di.SearchBookingModule
-import com.logix.optiflow.ui.navigation.OptiFlowNavHost
-import com.logix.optiflow.ui.theme.OptiFlowTheme
+import com.logix.optiflow.presentation.navigation.OptiFlowNavHost
+import com.logix.optiflow.presentation.theme.OptiFlowTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
