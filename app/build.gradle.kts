@@ -47,7 +47,7 @@ android {
             buildConfigField(
                 "String",
                 "API_BASE_URL",
-                quotedApiBaseUrl("api.base.url.local", "http://10.0.2.2:8080/"),
+                quotedApiBaseUrl("api.base.url.local", "http://10.0.2.2:8080/api/v1/"),
             )
         }
         create("prod") {
@@ -57,7 +57,7 @@ android {
                 "API_BASE_URL",
                 quotedApiBaseUrl(
                     "api.base.url.prod",
-                    "https://logix-optiflow-back-end.onrender.com/",
+                    "https://logix-optiflow-back-end.onrender.com/api/v1/",
                 ),
             )
         }

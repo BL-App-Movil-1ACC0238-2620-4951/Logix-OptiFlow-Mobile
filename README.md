@@ -6,8 +6,8 @@ Cliente Android del sprint **Search & Booking** (US05–US07): bienvenida/login 
 
 | Entorno | Base URL |
 |--------|-----------|
-| **Producción (Render)** | `https://logix-optiflow-back-end.onrender.com/` |
-| **Local (emulador)** | `http://10.0.2.2:8080/` (backend en tu PC, puerto 8080) |
+| **Producción (Render)** | `https://logix-optiflow-back-end.onrender.com/api/v1/` |
+| **Local (emulador)** | `http://10.0.2.2:8080/api/v1/` (backend en tu PC, puerto 8080) |
 
 - **Swagger UI:** [https://logix-optiflow-back-end.onrender.com/swagger-ui/index.html](https://logix-optiflow-back-end.onrender.com/swagger-ui/index.html)
 - **OpenAPI JSON:** `GET /v3/api-docs`

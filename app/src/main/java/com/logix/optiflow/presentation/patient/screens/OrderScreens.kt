@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -187,7 +188,11 @@ private fun OrderCard(order: OrderUi, onClick: () -> Unit) {
 fun OrderTrackingScreen(nav: NavController, id: String) {
     val vm = patientViewModel()
     val state by vm.uiState.collectAsState()
-    val order = state.orders.firstOrNull { it.id == id } ?: PatientViewModel.demoOrders().first()
+    val order = state.orders.firstOrNull { it.id == id }
+    if (order == null) {
+        LaunchedEffect(id) { nav.popBackStack() }
+        return
+    }
     val steps =
         listOf(
             Triple("Pedido recibido", order.history.getOrNull(0) ?: "—", R.drawable.lucide_ic_check),

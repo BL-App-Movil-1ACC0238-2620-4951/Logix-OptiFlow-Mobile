@@ -25,6 +25,8 @@ data class PatientSession(
 ) {
     val isPatient: Boolean get() = role == PATIENT_ROLE
 
+    val staffRole: StaffRole? get() = StaffRole.from(role)
+
     companion object {
         const val PATIENT_ROLE = "PATIENT"
     }

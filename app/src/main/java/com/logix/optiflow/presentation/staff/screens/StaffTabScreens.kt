@@ -37,6 +37,8 @@ import com.logix.optiflow.data.demo.AgendaItem
 import com.logix.optiflow.data.demo.AgendaStatus
 import com.logix.optiflow.data.demo.DemoData
 import com.logix.optiflow.data.demo.Product
+import com.logix.optiflow.data.demo.ProductionStage
+import com.logix.optiflow.domain.model.STORE_ZONE
 import com.logix.optiflow.presentation.navigation.Routes
 import com.logix.optiflow.presentation.navigation.switchRoot
 import com.logix.optiflow.presentation.search.screens.SearchField
@@ -50,6 +52,8 @@ import com.logix.optiflow.presentation.shared.components.StaffTopBar
 import com.logix.optiflow.presentation.shared.components.Txt
 import com.logix.optiflow.presentation.shared.components.VSpace
 import com.logix.optiflow.presentation.shared.components.tap
+import com.logix.optiflow.presentation.staff.StaffFeature
+import com.logix.optiflow.presentation.staff.can
 import com.logix.optiflow.presentation.staff.components.StaffButton
 import com.logix.optiflow.presentation.staff.components.StaffChip
 import com.logix.optiflow.presentation.staff.components.StaffFab
@@ -79,67 +83,106 @@ import com.logix.optiflow.presentation.theme.StaffInk
 import com.logix.optiflow.presentation.theme.StaffMuted
 import com.logix.optiflow.presentation.theme.White
 
-private const val STORE = "Óptica Visión Norte"
+private val WEEK_DAYS = listOf("LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB")
+
+private fun greeting(): String =
+    when (java.time.LocalTime.now(STORE_ZONE).hour) {
+        in 5..11 -> "Buenos días"
+        in 12..18 -> "Buenas tardes"
+        else -> "Buenas noches"
+    }
 
 @Composable
 fun StaffDashboardScreen(nav: NavController) {
+    val vm = staffViewModel()
+    val state by vm.uiState.collectAsState()
+    val role = state.role
     StaffScreen(
         nav = nav,
         tab = StaffTab.HOME,
         topBar = {
-            StaffTopBar("Buenos días, Camila", eyebrow = STORE) { StaffBell { nav.navigate(Routes.S_ALERTS) } }
+            StaffTopBar("${greeting()}, ${state.firstName}", eyebrow = state.storeName) {
+                if (role.can(StaffFeature.ALERTS)) StaffBell { nav.navigate(Routes.S_ALERTS) }
+            }
         },
     ) {
         VSpace(16.dp)
         StaffHero(background = StaffHero, padding = androidx.compose.foundation.layout.PaddingValues(22.dp, 24.dp)) {
             Row {
                 Column(Modifier.weight(1f)) {
-                    Txt("MIÉRCOLES 20 JUN", 11, color = Slate300, family = Inter, letterSpacing = 1.54.sp)
+                    Txt(state.agendaDateLabel, 11, color = Slate300, family = Inter, letterSpacing = 1.54.sp)
                     VSpace(10.dp)
                     Txt("Tu jornada, de un vistazo", 21, weight = FontWeight.Bold, color = White, family = Inter, letterSpacing = (-0.9).sp)
                     VSpace(6.dp)
                     Txt("Todo listo para comenzar.", 13, color = Slate300, family = Inter)
                 }
                 Box(Modifier.size(42.dp).clip(CircleShape).background(StaffChip), contentAlignment = Alignment.Center) {
-                    Txt("CR", 10, color = StaffHeader, family = Inter)
+                    Txt(state.initials, 10, color = StaffHeader, family = Inter)
                 }
             }
         }
         VSpace(20.dp)
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            StatCard(R.drawable.lucide_ic_calendar, "8", "Citas de hoy", "2 pendientes", Modifier.weight(1f)) {
-                nav.navigate(Routes.S_AGENDA)
+            if (role.can(StaffFeature.AGENDA)) {
+                val pending = state.agenda.count { it.status != AgendaStatus.DONE }
+                StatCard(R.drawable.lucide_ic_calendar, "${state.agenda.size}", "Citas de hoy", "$pending pendientes", Modifier.weight(1f)) {
+                    nav.navigate(Routes.S_AGENDA)
+                }
             }
-            StatCard(R.drawable.lucide_ic_briefcase, "12", "En producción", "3 por entregar", Modifier.weight(1f)) {
-                nav.navigate(Routes.S_PRODUCTION)
+            if (role.can(StaffFeature.PRODUCTION)) {
+                val active = state.productionOrders.count { it.stage != ProductionStage.DELIVERED }
+                val ready = state.productionOrders.count { it.stage == ProductionStage.READY_FOR_DELIVERY }
+                StatCard(R.drawable.lucide_ic_briefcase, "$active", "En producción", "$ready por entregar", Modifier.weight(1f)) {
+                    nav.navigate(Routes.S_PRODUCTION)
+                }
             }
         }
-        VSpace(24.dp)
-        StaffSectionTitle("Próxima atención", "Ver agenda") { nav.navigate(Routes.S_AGENDA) }
-        VSpace(12.dp)
-        Row(
-            Modifier.fillMaxWidth().staffCard().tap { nav.navigate(Routes.staffPatient("vs")) }.padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            StaffInitials("VS")
-            HSpace(10.dp)
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                StaffPill("En 15 minutos")
-                Txt("Valentina Silva", 14, color = StaffInk, family = Inter)
-                Txt("10:30 · Evaluación visual", 11, color = Slate400, family = Inter)
+        if (role.can(StaffFeature.AGENDA)) {
+            VSpace(24.dp)
+            StaffSectionTitle("Próxima atención", "Ver agenda") { nav.navigate(Routes.S_AGENDA) }
+            VSpace(12.dp)
+            val next = state.agenda.firstOrNull { it.status != AgendaStatus.DONE }
+            if (next == null) {
+                Txt("No hay más citas para hoy.", 12, color = Slate400, family = Inter)
+            } else {
+                Row(
+                    Modifier.fillMaxWidth().staffCard().tap { nav.navigate(Routes.staffPatient(next.patientId)) }.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    StaffInitials(initialsOf(next.name))
+                    HSpace(10.dp)
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        StaffPill(
+                            when (next.status) {
+                                AgendaStatus.WAITING -> "En sala de espera"
+                                AgendaStatus.PENDING -> "Por confirmar"
+                                else -> "Confirmada"
+                            },
+                        )
+                        Txt(next.name, 14, color = StaffInk, family = Inter)
+                        Txt("${next.time} · ${next.service}", 11, color = Slate400, family = Inter)
+                    }
+                    LIcon(R.drawable.lucide_ic_chevron_right, StaffInk, 22.dp)
+                }
             }
-            LIcon(R.drawable.lucide_ic_chevron_right, StaffInk, 22.dp)
         }
-        VSpace(24.dp)
-        StaffSectionTitle("Acciones frecuentes")
-        VSpace(12.dp)
+        val actions =
+            listOfNotNull(
+                Triple(R.drawable.lucide_ic_users, "Nuevo paciente", Routes.S_NEW_PATIENT).takeIf { role.can(StaffFeature.PATIENTS) },
+                Triple(R.drawable.lucide_ic_scan, "Escanear", Routes.S_SCANNER)
+                    .takeIf { role.can(StaffFeature.STOCK) || role.can(StaffFeature.INVENTORY) },
+                Triple(R.drawable.lucide_ic_file_text, "Cotización", Routes.S_QUOTE).takeIf { role.can(StaffFeature.QUOTES) },
+                Triple(R.drawable.lucide_ic_credit_card, "Nueva venta", Routes.S_SALE).takeIf { role.can(StaffFeature.SALES) },
+                Triple(R.drawable.lucide_ic_briefcase, "Órdenes", Routes.S_PRODUCTION)
+                    .takeIf { role.can(StaffFeature.PRODUCTION) && !role.can(StaffFeature.SALES) },
+            )
+        if (actions.isNotEmpty()) {
+            VSpace(24.dp)
+            StaffSectionTitle("Acciones frecuentes")
+            VSpace(12.dp)
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            listOf(
-                Triple(R.drawable.lucide_ic_users, "Nuevo paciente", Routes.S_NEW_PATIENT),
-                Triple(R.drawable.lucide_ic_scan, "Escanear", Routes.S_SCANNER),
-                Triple(R.drawable.lucide_ic_file_text, "Cotización", Routes.S_QUOTE),
-                Triple(R.drawable.lucide_ic_credit_card, "Nueva venta", Routes.S_SALE),
-            ).forEach { (icon, label, route) ->
+            actions.forEach { (icon, label, route) ->
                 Column(
                     Modifier.weight(1f).height(82.dp).staffCard(radius = 16.dp).tap { nav.navigate(route) },
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -150,23 +193,25 @@ fun StaffDashboardScreen(nav: NavController) {
                 }
             }
         }
-        VSpace(18.dp)
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .height(72.dp)
-                .staffCard(radius = 16.dp, background = StaffBlue50, border = StaffBlue200)
-                .tap { nav.navigate(Routes.S_ALERTS) }
-                .padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            StaffIconTile(R.drawable.lucide_ic_bell, size = 37.dp, background = Lavender, tint = StaffInk, radius = 12.dp)
-            HSpace(11.dp)
-            Column(Modifier.weight(1f)) {
-                Txt("3 alertas requieren atención", 12, color = StaffInk, family = Inter)
-                Txt("Stock bajo y órdenes con retraso.", 11, color = StaffMuted, family = Inter)
+        if (role.can(StaffFeature.ALERTS)) {
+            VSpace(18.dp)
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .height(72.dp)
+                    .staffCard(radius = 16.dp, background = StaffBlue50, border = StaffBlue200)
+                    .tap { nav.navigate(Routes.S_ALERTS) }
+                    .padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                StaffIconTile(R.drawable.lucide_ic_bell, size = 37.dp, background = Lavender, tint = StaffInk, radius = 12.dp)
+                HSpace(11.dp)
+                Column(Modifier.weight(1f)) {
+                    Txt("3 alertas requieren atención", 12, color = StaffInk, family = Inter)
+                    Txt("Stock bajo y órdenes con retraso.", 11, color = StaffMuted, family = Inter)
+                }
+                LIcon(R.drawable.lucide_ic_chevron_right, StaffInk, 22.dp)
             }
-            LIcon(R.drawable.lucide_ic_chevron_right, StaffInk, 22.dp)
         }
         VSpace(32.dp)
     }
@@ -198,7 +243,6 @@ private val agendaFilters =
 @Composable
 fun StaffAgendaScreen(nav: NavController) {
     var filter by rememberSaveable { mutableIntStateOf(0) }
-    var day by rememberSaveable { mutableIntStateOf(2) }
     val vm = staffViewModel()
     val state by vm.uiState.collectAsState()
     val agenda = state.agenda
@@ -210,7 +254,11 @@ fun StaffAgendaScreen(nav: NavController) {
     StaffScreen(
         nav = nav,
         tab = StaffTab.AGENDA,
-        topBar = { StaffTopBar("Citas y agenda", eyebrow = STORE) { StaffBell { nav.navigate(Routes.S_ALERTS) } } },
+        topBar = {
+            StaffTopBar("Citas y agenda", eyebrow = state.storeName) {
+                if (state.role.can(StaffFeature.ALERTS)) StaffBell { nav.navigate(Routes.S_ALERTS) }
+            }
+        },
         overlay = {
             StaffFab(
                 "Nueva cita",
@@ -223,9 +271,9 @@ fun StaffAgendaScreen(nav: NavController) {
         StaffHero(background = Color(0xFF242E78), padding = androidx.compose.foundation.layout.PaddingValues(18.dp, 20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Txt("MIÉRCOLES 20 JUN", 9, color = Slate300, family = Inter, letterSpacing = 1.2.sp)
+                    Txt(state.agendaDateLabel, 9, color = Slate300, family = Inter, letterSpacing = 1.2.sp)
                     VSpace(8.dp)
-                    Txt("${agenda.size} pacientes hoy", 20, color = White, family = Inter)
+                    Txt("${agenda.size} pacientes" + if (state.isToday) " hoy" else "", 20, color = White, family = Inter)
                     VSpace(8.dp)
                     Txt("$done consultas completadas · ${waiting.size} en sala de espera", 11, color = Slate300, family = Inter)
                 }
@@ -236,15 +284,17 @@ fun StaffAgendaScreen(nav: NavController) {
         }
         VSpace(14.dp)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("LUN" to "18", "MAR" to "19", "MIÉ" to "20", "JUE" to "21", "VIE" to "22", "SÁB" to "23").forEachIndexed { index, (dow, num) ->
-                val selected = index == day
+            state.agendaWeek.forEachIndexed { index, date ->
+                val dow = WEEK_DAYS[index]
+                val num = date.dayOfMonth.toString()
+                val selected = date == state.agendaDate
                 Column(
                     Modifier
                         .weight(1f)
                         .height(56.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(if (selected) StaffAccent else White)
-                        .tap { day = index },
+                        .tap { vm.refreshAgenda(date) },
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
@@ -283,13 +333,15 @@ fun StaffAgendaScreen(nav: NavController) {
                         }
                         LIcon(R.drawable.lucide_ic_chevron_right, StaffInk, 20.dp)
                     }
-                    VSpace(14.dp)
-                    StaffButton(
-                        "Iniciar atención clínica",
-                        onClick = { nav.navigate(Routes.S_CLINICAL) },
-                        icon = R.drawable.lucide_ic_eye,
-                        height = 48.dp,
-                    )
+                    if (state.role.can(StaffFeature.CLINICAL)) {
+                        VSpace(14.dp)
+                        StaffButton(
+                            "Iniciar atención clínica",
+                            onClick = { nav.navigate(Routes.S_CLINICAL) },
+                            icon = R.drawable.lucide_ic_eye,
+                            height = 48.dp,
+                        )
+                    }
                 }
             }
         }
@@ -374,9 +426,9 @@ fun StaffPatientsScreen(nav: NavController) {
             Txt("Fichas optométricas, recetas y seguimientos al día.", 11, color = Slate300, family = Inter)
             VSpace(22.dp)
             Row {
-                StatColumn(if (live) state.patients.size.toString() else "1.248", "Total pacientes", White, Modifier.weight(1f))
-                StatColumn(if (live) state.newPatientsThisMonth.toString() else "34", "Nuevos este mes", Color(0xFF34D399), Modifier.weight(1f))
-                StatColumn(if (live) state.patientsWithRecords.toString() else "890", "Con ficha vigente", White, Modifier.weight(1f))
+                StatColumn(state.patients.size.toString(), "Total pacientes", White, Modifier.weight(1f))
+                StatColumn(state.newPatientsThisMonth.toString(), "Nuevos este mes", Color(0xFF34D399), Modifier.weight(1f))
+                StatColumn(state.patientsWithRecords.toString(), "Con ficha vigente", White, Modifier.weight(1f))
             }
         }
         VSpace(16.dp)
@@ -513,11 +565,11 @@ fun StaffInventoryScreen(nav: NavController) {
         StaffSectionTitle("Acciones rápidas")
         VSpace(12.dp)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            listOf(
-                Triple(R.drawable.lucide_ic_plus, "Ingresar stock", Routes.S_MOVEMENT),
-                Triple(R.drawable.lucide_ic_chevron_right, "Traslado", Routes.stock("rb5154")),
-                Triple(R.drawable.lucide_ic_check, "Auditoría", Routes.stock("rb5154")),
-                Triple(R.drawable.lucide_ic_file_text, "Órdenes", Routes.S_PRODUCTION),
+            listOfNotNull(
+                Triple(R.drawable.lucide_ic_plus, "Ingresar stock", Routes.S_MOVEMENT).takeIf { state.role.can(StaffFeature.INVENTORY) },
+                Triple(R.drawable.lucide_ic_chevron_right, "Traslado", Routes.stock("rb5154")).takeIf { state.role.can(StaffFeature.INVENTORY) },
+                Triple(R.drawable.lucide_ic_check, "Auditoría", Routes.stock("rb5154")).takeIf { state.role.can(StaffFeature.INVENTORY) },
+                Triple(R.drawable.lucide_ic_file_text, "Órdenes", Routes.S_PRODUCTION).takeIf { state.role.can(StaffFeature.PRODUCTION) },
             ).forEach { (icon, label, route) ->
                 Column(
                     Modifier.weight(1f).height(82.dp).staffCard(radius = 16.dp).tap { nav.navigate(route) },
@@ -559,34 +611,53 @@ private fun ProductCard(product: Product, available: Int, modifier: Modifier, on
 
 @Composable
 fun StaffMoreScreen(nav: NavController) {
+    val vm = staffViewModel()
+    val state by vm.uiState.collectAsState()
+    val role = state.role
     StaffScreen(nav = nav, tab = StaffTab.MORE, topBar = { StaffTopBar("Más herramientas") }) {
-        VSpace(30.dp)
-        Txt("Operación", 18, weight = FontWeight.Bold, color = StaffInk, family = Inter)
-        VSpace(12.dp)
-        ToolGroup {
-            ToolRow(R.drawable.lucide_ic_credit_card, "Ventas y pagos", "Historial y nueva venta") { nav.navigate(Routes.S_SALE) }
-            Divider(StaffBorder)
-            ToolRow(R.drawable.lucide_ic_file_text, "Cotizaciones", "Pendientes y enviadas") { nav.navigate(Routes.S_QUOTE) }
-            Divider(StaffBorder)
-            ToolRow(R.drawable.lucide_ic_briefcase, "Órdenes de trabajo", "Producción y entregas", badge = "5") {
-                nav.navigate(Routes.S_PRODUCTION)
-            }
+        val operation =
+            listOfNotNull(
+                ToolItem(R.drawable.lucide_ic_credit_card, "Ventas y pagos", "Historial y nueva venta") { nav.navigate(Routes.S_SALE) }
+                    .takeIf { role.can(StaffFeature.SALES) },
+                ToolItem(R.drawable.lucide_ic_file_text, "Cotizaciones", "Pendientes y enviadas") { nav.navigate(Routes.S_QUOTE) }
+                    .takeIf { role.can(StaffFeature.QUOTES) },
+                ToolItem(R.drawable.lucide_ic_briefcase, "Órdenes de trabajo", "Producción y entregas", badge = "5") {
+                    nav.navigate(Routes.S_PRODUCTION)
+                }.takeIf { role.can(StaffFeature.PRODUCTION) },
+            )
+        if (operation.isNotEmpty()) {
+            VSpace(30.dp)
+            Txt("Operación", 18, weight = FontWeight.Bold, color = StaffInk, family = Inter)
+            VSpace(12.dp)
+            ToolList(operation)
         }
+        val management =
+            listOfNotNull(
+                ToolItem(R.drawable.lucide_ic_bell, "Alertas", null, badge = "3") { nav.navigate(Routes.S_ALERTS) }
+                    .takeIf { role.can(StaffFeature.ALERTS) },
+                ToolItem(R.drawable.lucide_ic_chart_no_axes_column, "Reportes", null) { nav.navigate(Routes.S_REPORTS) }
+                    .takeIf { role.can(StaffFeature.REPORTS) },
+                ToolItem(R.drawable.lucide_ic_settings, "Configuración y permisos", null) { nav.navigate(Routes.P_SETTINGS + "?staff=true") },
+                ToolItem(R.drawable.lucide_ic_circle_question_mark, "Ayuda y documentación", null) {},
+                ToolItem(R.drawable.lucide_ic_user, "Cerrar sesión", null) { vm.clearSession { nav.switchRoot(Routes.AUTH) } },
+            )
         VSpace(26.dp)
         Txt("Gestión", 18, weight = FontWeight.Bold, color = StaffInk, family = Inter)
         VSpace(12.dp)
-        ToolGroup {
-            ToolRow(R.drawable.lucide_ic_bell, "Alertas", null, badge = "3") { nav.navigate(Routes.S_ALERTS) }
-            Divider(StaffBorder)
-            ToolRow(R.drawable.lucide_ic_chart_no_axes_column, "Reportes", null) { nav.navigate(Routes.S_REPORTS) }
-            Divider(StaffBorder)
-            ToolRow(R.drawable.lucide_ic_settings, "Configuración y permisos", null) { nav.navigate(Routes.P_SETTINGS + "?staff=true") }
-            Divider(StaffBorder)
-            ToolRow(R.drawable.lucide_ic_circle_question_mark, "Ayuda y documentación", null) {}
-            Divider(StaffBorder)
-            ToolRow(R.drawable.lucide_ic_user, "Vista paciente", "Cambiar de experiencia") { nav.switchRoot(Routes.P_HOME) }
-        }
+        ToolList(management)
         VSpace(28.dp)
+    }
+}
+
+private class ToolItem(val icon: Int, val title: String, val subtitle: String?, val badge: String? = null, val onClick: () -> Unit)
+
+@Composable
+private fun ToolList(items: List<ToolItem>) {
+    ToolGroup {
+        items.forEachIndexed { index, item ->
+            if (index > 0) Divider(StaffBorder)
+            ToolRow(item.icon, item.title, item.subtitle, item.badge, item.onClick)
+        }
     }
 }
 
