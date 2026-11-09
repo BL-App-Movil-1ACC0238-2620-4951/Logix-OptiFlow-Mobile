@@ -10,8 +10,3 @@ data class OpticalStoreDto(
     val rating: Double?,
     val status: String,
 )
-
-data class OpticalStoreListResponse(
-    val message: String?,
-    val opticalStores: List<OpticalStoreDto>?,
-)

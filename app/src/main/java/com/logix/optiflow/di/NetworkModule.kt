@@ -1,6 +1,8 @@
 package com.logix.optiflow.di
 
 import com.logix.optiflow.BuildConfig
+import com.logix.optiflow.data.remote.AuthInterceptor
+import com.logix.optiflow.data.remote.AuthTokenHolder
 import com.logix.optiflow.data.remote.json.InstantJsonAdapter
 import com.logix.optiflow.data.remote.json.UuidJsonAdapter
 import com.squareup.moshi.Moshi
@@ -37,6 +39,7 @@ object NetworkModule {
             .connectTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .readTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .writeTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .addInterceptor(AuthInterceptor { AuthTokenHolder.token })
             .addInterceptor(logging)
             .build()
     }

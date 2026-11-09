@@ -10,8 +10,3 @@ data class TimeSlotDto(
     val endDateTime: Instant,
     val status: String,
 )
-
-data class TimeSlotListResponse(
-    val message: String?,
-    val timeSlots: List<TimeSlotDto>?,
-)

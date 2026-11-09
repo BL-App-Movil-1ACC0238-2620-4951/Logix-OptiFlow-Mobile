@@ -11,10 +11,11 @@ interface PatientRepository {
         password: String,
     ): Patient
 
+    /** Inicia sesión de un paciente o del personal y devuelve la sesión con su rol. */
     suspend fun login(
         email: String,
         password: String,
-    ): Patient
+    ): PatientSession
 
     suspend fun getSession(): PatientSession?
 

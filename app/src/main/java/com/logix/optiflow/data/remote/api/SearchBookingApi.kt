@@ -4,10 +4,10 @@ import com.logix.optiflow.data.remote.dto.AppointmentDto
 import com.logix.optiflow.data.remote.dto.BookAppointmentRequest
 import com.logix.optiflow.data.remote.dto.LoginRequest
 import com.logix.optiflow.data.remote.dto.LoginResponse
-import com.logix.optiflow.data.remote.dto.OpticalStoreListResponse
+import com.logix.optiflow.data.remote.dto.OpticalStoreDto
 import com.logix.optiflow.data.remote.dto.PatientDto
 import com.logix.optiflow.data.remote.dto.RegisterPatientRequest
-import com.logix.optiflow.data.remote.dto.TimeSlotListResponse
+import com.logix.optiflow.data.remote.dto.TimeSlotDto
 import com.logix.optiflow.data.remote.dto.WorkOrderDto
 import com.logix.optiflow.data.remote.dto.ClinicalRecordDto
 import java.util.UUID
@@ -23,29 +23,28 @@ interface SearchBookingApi {
     suspend fun listOpticalStores(
         @Query("name") name: String? = null,
         @Query("address") address: String? = null,
-    ): OpticalStoreListResponse
-
-    @GET("optical-stores/search")
-    suspend fun searchOpticalStores(
-        @Query("name") name: String? = null,
-        @Query("address") address: String? = null,
         @Query("minRating") minRating: Double? = null,
-    ): OpticalStoreListResponse
+    ): List<OpticalStoreDto>
 
-    @GET("optical-stores/{id}/availability")
-    suspend fun getAvailability(
+    @GET("optical-stores/{id}/time-slots")
+    suspend fun getTimeSlots(
         @Path("id") opticalStoreId: UUID,
-    ): TimeSlotListResponse
+    ): List<TimeSlotDto>
 
     @POST("patients")
     suspend fun registerPatient(
         @Body request: RegisterPatientRequest,
     ): PatientDto
 
-    @POST("login")
+    @POST("auth/tokens")
     suspend fun login(
         @Body request: LoginRequest,
     ): LoginResponse
+
+    @GET("patients/{patientId}")
+    suspend fun getPatient(
+        @Path("patientId") patientId: UUID,
+    ): PatientDto
 
     @POST("appointments")
     suspend fun bookAppointment(

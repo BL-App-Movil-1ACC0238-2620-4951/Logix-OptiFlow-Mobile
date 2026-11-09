@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.logix.optiflow.data.remote.toUserMessage
 import com.logix.optiflow.domain.model.PatientSession
 import com.logix.optiflow.domain.usecase.GetPatientSessionUseCase
-import com.logix.optiflow.domain.usecase.LoginPatientUseCase
+import com.logix.optiflow.domain.usecase.LoginUseCase
 import com.logix.optiflow.domain.usecase.RegisterPatientUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -35,7 +35,7 @@ data class AuthUiState(
 
 class AuthViewModel(
     private val registerPatient: RegisterPatientUseCase,
-    private val loginPatient: LoginPatientUseCase,
+    private val login: LoginUseCase,
     private val getPatientSession: GetPatientSessionUseCase,
 ) : ViewModel() {
 
@@ -70,15 +70,13 @@ class AuthViewModel(
             _uiState.update { it.copy(errorMessage = error) }
             return
         }
-        if (state.role == UserRole.CLINICAL) {
-            // El backend aún no tiene cuentas de personal: el acceso del personal es de demostración.
-            _uiState.update { it.copy(authenticatedAs = UserRole.CLINICAL, errorMessage = null) }
-            return
-        }
-        if (state.isRegisterMode) register() else login()
+        if (state.isRegisterMode) register() else signIn()
     }
 
     private fun validate(state: AuthUiState): String? {
+        if (state.isRegisterMode && state.role == UserRole.CLINICAL) {
+            return "Las cuentas del personal las crea el administrador de la óptica."
+        }
         if (state.isRegisterMode && state.name.isBlank()) return "Ingresa tu nombre completo."
         if (!state.email.contains('@')) return "Ingresa un correo válido."
         if (state.isRegisterMode && state.role == UserRole.PATIENT && state.phone.isBlank()) {
@@ -101,9 +99,9 @@ class AuthViewModel(
                     phone = state.phone.trim(),
                     password = state.password,
                 )
-                loginPatient(email = email, password = state.password)
+                val session = login(email = email, password = state.password)
                 _uiState.update {
-                    it.copy(isLoading = false, session = getPatientSession(), authenticatedAs = UserRole.PATIENT)
+                    it.copy(isLoading = false, session = session, authenticatedAs = UserRole.PATIENT)
                 }
             } catch (error: Exception) {
                 _uiState.update { it.copy(isLoading = false, errorMessage = error.toUserMessage()) }
@@ -111,13 +109,15 @@ class AuthViewModel(
         }
     }
 
-    private fun login() {
+    /** Abre el inicio del paciente o del personal según el rol de la cuenta. */
+    private fun signIn() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             try {
-                loginPatient(email = _uiState.value.email.trim(), password = _uiState.value.password)
+                val session = login(email = _uiState.value.email.trim(), password = _uiState.value.password)
+                val role = if (session.isPatient) UserRole.PATIENT else UserRole.CLINICAL
                 _uiState.update {
-                    it.copy(isLoading = false, session = getPatientSession(), authenticatedAs = UserRole.PATIENT)
+                    it.copy(isLoading = false, session = session, authenticatedAs = role)
                 }
             } catch (error: Exception) {
                 _uiState.update { it.copy(isLoading = false, errorMessage = error.toUserMessage()) }

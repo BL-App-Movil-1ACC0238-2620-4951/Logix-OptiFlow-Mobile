@@ -25,5 +25,7 @@ data class LoginRequest(
 
 data class LoginResponse(
     val token: String,
-    val patient: PatientDto,
+    val expiresAt: Instant?,
+    val userId: UUID,
+    val role: String,
 )

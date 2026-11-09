@@ -69,7 +69,12 @@ fun OptiFlowNavHost() {
 
     LaunchedEffect(Unit) {
         val session = runCatching { SearchBookingModule.getPatientSessionUseCase() }.getOrNull()
-        start = if (session?.token.isNullOrBlank()) Routes.AUTH else Routes.P_HOME
+        start =
+            when {
+                session?.token.isNullOrBlank() -> Routes.AUTH
+                session?.isPatient == false -> Routes.S_HOME
+                else -> Routes.P_HOME
+            }
     }
 
     val startDestination = start

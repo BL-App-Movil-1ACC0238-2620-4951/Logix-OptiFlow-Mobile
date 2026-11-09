@@ -19,9 +19,7 @@ class AppointmentRepositoryImpl(
     override suspend fun getAvailability(opticalStoreId: UUID): List<TimeSlot> =
         withContext(Dispatchers.IO) {
             api
-                .getAvailability(opticalStoreId)
-                .timeSlots
-                .orEmpty()
+                .getTimeSlots(opticalStoreId)
                 .map { it.toDomain() }
                 .filter { it.status.equals("AVAILABLE", ignoreCase = true) }
         }

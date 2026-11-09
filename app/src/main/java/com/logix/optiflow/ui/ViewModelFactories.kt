@@ -35,7 +35,7 @@ object ViewModelFactories {
         simpleFactory {
             AuthViewModel(
                 registerPatient = SearchBookingModule.registerPatientUseCase,
-                loginPatient = SearchBookingModule.loginPatientUseCase,
+                login = SearchBookingModule.loginUseCase,
                 getPatientSession = SearchBookingModule.getPatientSessionUseCase,
             )
         }
