@@ -329,8 +329,14 @@ fun StaffPatientsScreen(nav: NavController) {
     val state by vm.uiState.collectAsState()
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableIntStateOf(0) }
+    val live = state.patientsFromApi
+    // "En atención" son los pacientes de la sala de espera de hoy y "En taller" los que tienen una orden sin entregar.
+    val waitingIds =
+        if (state.agendaFromApi) state.agenda.filter { it.status == AgendaStatus.WAITING }.map { it.patientId }.toSet() else emptySet()
     val patients =
         state.patients.filter {
+            !live || filter == 0 || (filter == 1 && it.id in waitingIds) || (filter == 2 && it.id in state.workshopPatientIds)
+        }.filter {
             query.isBlank() || it.fullName.contains(query, true) || it.rut.contains(query) || it.phone.contains(query) ||
                 it.email.contains(query, true)
         }
@@ -356,16 +362,26 @@ fun StaffPatientsScreen(nav: NavController) {
             Txt("Fichas optométricas, recetas y seguimientos al día.", 11, color = Slate300, family = Inter)
             VSpace(22.dp)
             Row {
-                StatColumn(if (state.patientsFromApi) state.patients.size.toString() else "1.248", "Total pacientes", White, Modifier.weight(1f))
-                StatColumn("34", "Nuevos este mes", Color(0xFF34D399), Modifier.weight(1f))
-                StatColumn("890", "Con ficha vigente", White, Modifier.weight(1f))
+                StatColumn(if (live) state.patients.size.toString() else "1.248", "Total pacientes", White, Modifier.weight(1f))
+                StatColumn(if (live) state.newPatientsThisMonth.toString() else "34", "Nuevos este mes", Color(0xFF34D399), Modifier.weight(1f))
+                StatColumn(if (live) state.patientsWithRecords.size.toString() else "890", "Con ficha vigente", White, Modifier.weight(1f))
             }
         }
         VSpace(16.dp)
-        SearchField(query, { query = it }, if (state.patientsFromApi) "Buscar por nombre, correo o teléfono" else "Buscar por nombre, RUT o teléfono")
+        SearchField(query, { query = it }, if (live) "Buscar por nombre, correo o teléfono" else "Buscar por nombre, RUT o teléfono")
         VSpace(12.dp)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Todos (${if (state.patientsFromApi) state.patients.size else "1.248"})", "En atención (1)", "En taller (12)").forEachIndexed { index, label ->
+            (
+                if (live) {
+                    listOf(
+                        "Todos (${state.patients.size})",
+                        "En atención (${state.patients.count { it.id in waitingIds }})",
+                        "En taller (${state.patients.count { it.id in state.workshopPatientIds }})",
+                    )
+                } else {
+                    listOf("Todos (1.248)", "En atención (1)", "En taller (12)")
+                }
+            ).forEachIndexed { index, label ->
                 StaffChip(label, filter == index) { filter = index }
             }
         }

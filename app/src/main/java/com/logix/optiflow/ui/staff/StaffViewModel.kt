@@ -21,6 +21,10 @@ import java.time.format.DateTimeFormatter
 import java.time.Period
 import java.util.Locale
 import java.util.UUID
+import java.time.YearMonth
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,6 +34,9 @@ import kotlinx.coroutines.launch
 data class StaffUiState(
     val patients: List<StaffPatient> = DemoData.staffPatients,
     val patientsFromApi: Boolean = false,
+    val newPatientsThisMonth: Int = 0,
+    val patientsWithRecords: Set<String> = emptySet(),
+    val workshopPatientIds: Set<String> = emptySet(),
     val agenda: List<AgendaItem> = DemoData.agenda,
     val agendaFromApi: Boolean = false,
     val productionOrders: List<ProductionOrder> = DemoData.productionOrders,
@@ -66,10 +73,31 @@ class StaffViewModel(
             val patients = runCatching { api.searchPatients() }.getOrDefault(emptyList())
             if (patients.isNotEmpty()) {
                 patients.forEach { patientNames[it.id] = it.name }
-                _uiState.update { it.copy(patients = patients.map(::toStaffPatient), patientsFromApi = true) }
+                val thisMonth = YearMonth.now()
+                val newThisMonth =
+                    patients.count { p -> p.createdAt?.let { YearMonth.from(it.atZone(ZoneId.systemDefault())) } == thisMonth }
+                _uiState.update {
+                    it.copy(
+                        patients = patients.map(::toStaffPatient),
+                        patientsFromApi = true,
+                        newPatientsThisMonth = newThisMonth,
+                    )
+                }
+                val withRecords = patientsWithClinicalRecords(patients)
+                _uiState.update { it.copy(patientsWithRecords = withRecords) }
             }
         }
     }
+
+    /** No hay una ruta con todas las fichas, así que se consulta la de cada paciente en paralelo. */
+    private suspend fun patientsWithClinicalRecords(patients: List<PatientDto>): Set<String> =
+        coroutineScope {
+            patients
+                .map { p -> async { p.id.toString().takeIf { runCatching { api.getPatientClinicalRecords(p.id).isNotEmpty() }.getOrDefault(false) } } }
+                .awaitAll()
+                .filterNotNull()
+                .toSet()
+        }
 
     private suspend fun patientName(id: UUID): String =
         patientNames[id]
@@ -149,7 +177,11 @@ class StaffViewModel(
             val orders = runCatching { api.getWorkOrders() }.getOrDefault(emptyList())
             if (orders.isNotEmpty()) {
                 val items = orders.map { order -> toProductionOrder(order, order.patientId?.let { patientName(it) } ?: "Paciente") }
-                _uiState.update { it.copy(productionOrders = items, productionFromApi = true) }
+                val inWorkshop =
+                    orders.filter { it.status != "DELIVERED" }.mapNotNull { it.patientId?.toString() }.toSet()
+                _uiState.update {
+                    it.copy(productionOrders = items, productionFromApi = true, workshopPatientIds = inWorkshop)
+                }
             }
         }
     }
