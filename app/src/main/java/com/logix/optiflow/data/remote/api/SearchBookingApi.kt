@@ -44,6 +44,12 @@ interface SearchBookingApi {
         @Body request: LoginRequest,
     ): LoginResponse
 
+    @GET("patients")
+    suspend fun searchPatients(
+        @Query("name") name: String? = null,
+        @Query("email") email: String? = null,
+    ): List<PatientDto>
+
     @GET("patients/{patientId}")
     suspend fun getPatient(
         @Path("patientId") patientId: UUID,

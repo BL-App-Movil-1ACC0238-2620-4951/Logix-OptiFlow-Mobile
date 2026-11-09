@@ -8,6 +8,7 @@ data class PatientDto(
     val name: String,
     val email: String,
     val phone: String,
+    val birthDate: String? = null,
     val createdAt: Instant?,
 )
 

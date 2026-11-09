@@ -331,7 +331,8 @@ fun StaffPatientsScreen(nav: NavController) {
     var filter by rememberSaveable { mutableIntStateOf(0) }
     val patients =
         state.patients.filter {
-            query.isBlank() || it.fullName.contains(query, true) || it.rut.contains(query) || it.phone.contains(query)
+            query.isBlank() || it.fullName.contains(query, true) || it.rut.contains(query) || it.phone.contains(query) ||
+                it.email.contains(query, true)
         }
 
     StaffScreen(
@@ -355,16 +356,16 @@ fun StaffPatientsScreen(nav: NavController) {
             Txt("Fichas optométricas, recetas y seguimientos al día.", 11, color = Slate300, family = Inter)
             VSpace(22.dp)
             Row {
-                StatColumn("1.248", "Total pacientes", White, Modifier.weight(1f))
+                StatColumn(if (state.patientsFromApi) state.patients.size.toString() else "1.248", "Total pacientes", White, Modifier.weight(1f))
                 StatColumn("34", "Nuevos este mes", Color(0xFF34D399), Modifier.weight(1f))
                 StatColumn("890", "Con ficha vigente", White, Modifier.weight(1f))
             }
         }
         VSpace(16.dp)
-        SearchField(query, { query = it }, "Buscar por nombre, RUT o teléfono")
+        SearchField(query, { query = it }, if (state.patientsFromApi) "Buscar por nombre, correo o teléfono" else "Buscar por nombre, RUT o teléfono")
         VSpace(12.dp)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Todos (1.248)", "En atención (1)", "En taller (12)").forEachIndexed { index, label ->
+            listOf("Todos (${if (state.patientsFromApi) state.patients.size else "1.248"})", "En atención (1)", "En taller (12)").forEachIndexed { index, label ->
                 StaffChip(label, filter == index) { filter = index }
             }
         }
@@ -381,7 +382,7 @@ fun StaffPatientsScreen(nav: NavController) {
                 HSpace(16.dp)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Txt(patient.name, 14, color = StaffInk, family = Inter)
-                    Txt(patient.rut, 11, color = Slate400, family = Inter)
+                    Txt(patient.email.ifBlank { patient.rut }, 11, color = Slate400, family = Inter)
                     Txt(patient.note, 11, color = Slate400, family = Inter)
                 }
                 LIcon(R.drawable.lucide_ic_chevron_right, StaffInk, 20.dp)

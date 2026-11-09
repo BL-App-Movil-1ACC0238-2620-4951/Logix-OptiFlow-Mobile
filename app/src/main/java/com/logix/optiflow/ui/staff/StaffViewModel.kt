@@ -10,6 +10,7 @@ import com.logix.optiflow.data.demo.ProductionStage
 import com.logix.optiflow.data.demo.StaffPatient
 import com.logix.optiflow.data.remote.api.SearchBookingApi
 import com.logix.optiflow.data.remote.dto.AppointmentDto
+import com.logix.optiflow.data.remote.dto.PatientDto
 import com.logix.optiflow.data.remote.dto.WorkOrderDto
 import com.logix.optiflow.domain.usecase.GetPatientSessionUseCase
 import java.time.Duration
@@ -17,7 +18,9 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.Period
 import java.util.Locale
+import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,6 +29,7 @@ import kotlinx.coroutines.launch
 
 data class StaffUiState(
     val patients: List<StaffPatient> = DemoData.staffPatients,
+    val patientsFromApi: Boolean = false,
     val agenda: List<AgendaItem> = DemoData.agenda,
     val agendaFromApi: Boolean = false,
     val productionOrders: List<ProductionOrder> = DemoData.productionOrders,
@@ -36,9 +40,9 @@ data class StaffUiState(
 )
 
 /**
- * Estado del personal clínico. Las órdenes de trabajo vienen de `GET /work-orders` y la agenda del
- * día de `GET /appointments` de la óptica del usuario; pacientes e inventario usan datos de
- * demostración.
+ * Estado del personal clínico. El directorio viene de `GET /patients`, las órdenes de trabajo de
+ * `GET /work-orders` y la agenda del día de `GET /appointments` de la óptica del usuario; el
+ * inventario usa datos de demostración.
  */
 class StaffViewModel(
     private val api: SearchBookingApi,
@@ -48,9 +52,50 @@ class StaffViewModel(
     private val _uiState = MutableStateFlow(StaffUiState())
     val uiState: StateFlow<StaffUiState> = _uiState.asStateFlow()
 
+    // Nombres ya consultados con `GET /patients/{id}`, compartidos por la agenda y las órdenes.
+    private val patientNames = mutableMapOf<UUID, String>()
+
     init {
+        refreshPatients()
         refreshProduction()
         refreshAgenda()
+    }
+
+    fun refreshPatients() {
+        viewModelScope.launch {
+            val patients = runCatching { api.searchPatients() }.getOrDefault(emptyList())
+            if (patients.isNotEmpty()) {
+                patients.forEach { patientNames[it.id] = it.name }
+                _uiState.update { it.copy(patients = patients.map(::toStaffPatient), patientsFromApi = true) }
+            }
+        }
+    }
+
+    private suspend fun patientName(id: UUID): String =
+        patientNames[id]
+            ?: runCatching { api.getPatient(id).name }.getOrNull()?.also { patientNames[id] = it }
+            ?: "Paciente"
+
+    private fun toStaffPatient(dto: PatientDto): StaffPatient {
+        val words = dto.name.trim().split(' ').filter { it.isNotBlank() }
+        val age =
+            dto.birthDate
+                ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+                ?.let { Period.between(it, LocalDate.now()).years } ?: 0
+        val since = dto.createdAt?.let { DATE_FORMAT.format(it) }
+        return StaffPatient(
+            id = dto.id.toString(),
+            initials = words.take(2).joinToString("") { it.first().uppercase() },
+            name = words.take(2).joinToString(" "),
+            fullName = dto.name,
+            rut = "—",
+            note = since?.let { "Registrado el $it" } ?: "Paciente registrado",
+            phone = dto.phone,
+            lastVisit = "—",
+            ficha = dto.id.toString().take(8).uppercase(Locale.US),
+            age = age,
+            email = dto.email,
+        )
     }
 
     fun refreshAgenda() {
@@ -70,8 +115,7 @@ class StaffViewModel(
         return api.getStoreAgenda(storeId, LocalDate.now().toString())
             .filter { it.status != "CANCELLED" }
             .map { appointment ->
-                val name = runCatching { api.getPatient(appointment.patientId).name }.getOrDefault("Paciente")
-                toAgendaItem(appointment, name, now)
+                toAgendaItem(appointment, patientName(appointment.patientId), now)
             }
     }
 
@@ -104,9 +148,8 @@ class StaffViewModel(
         viewModelScope.launch {
             val orders = runCatching { api.getWorkOrders() }.getOrDefault(emptyList())
             if (orders.isNotEmpty()) {
-                _uiState.update {
-                    it.copy(productionOrders = orders.map(::toProductionOrder), productionFromApi = true)
-                }
+                val items = orders.map { order -> toProductionOrder(order, order.patientId?.let { patientName(it) } ?: "Paciente") }
+                _uiState.update { it.copy(productionOrders = items, productionFromApi = true) }
             }
         }
     }
@@ -145,9 +188,11 @@ class StaffViewModel(
     private companion object {
         const val WAITING_WINDOW_MINUTES = 15L
         val TIME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
+        val DATE_FORMAT: DateTimeFormatter =
+            DateTimeFormatter.ofPattern("d MMM yyyy", Locale("es", "PE")).withZone(ZoneId.systemDefault())
     }
 
-    private fun toProductionOrder(dto: WorkOrderDto): ProductionOrder {
+    private fun toProductionOrder(dto: WorkOrderDto, patientName: String): ProductionOrder {
         val stage =
             runCatching { ProductionStage.valueOf(dto.status.uppercase(Locale.US)) }
                 .getOrDefault(ProductionStage.PENDING)
@@ -161,9 +206,6 @@ class StaffViewModel(
                         else -> "Entrega " + date.format(DateTimeFormatter.ofPattern("d MMM", Locale("es", "PE"))).replace(".", "")
                     }
                 } ?: "Sin fecha"
-        val patientName =
-            dto.patientId?.let { id -> DemoData.staffPatients.getOrNull(id.hashCode().mod(DemoData.staffPatients.size))?.name }
-                ?: "Paciente"
         return ProductionOrder(
             code = "OT-" + dto.id.toString().take(4).uppercase(Locale.US),
             patient = patientName,
