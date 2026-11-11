@@ -4,15 +4,22 @@ import com.logix.optiflow.data.remote.dto.clinical.ClinicalRecordDto
 import com.logix.optiflow.data.remote.dto.clinical.ClinicalRecordsSummaryDto
 import com.logix.optiflow.data.remote.dto.production.WorkOrderDto
 import com.logix.optiflow.data.remote.dto.searchbooking.AppointmentDto
+import com.logix.optiflow.data.remote.dto.searchbooking.AssignStaffRoleRequest
 import com.logix.optiflow.data.remote.dto.searchbooking.BookAppointmentRequest
 import com.logix.optiflow.data.remote.dto.searchbooking.LoginRequest
 import com.logix.optiflow.data.remote.dto.searchbooking.LoginResponse
 import com.logix.optiflow.data.remote.dto.searchbooking.OpticalStoreDto
 import com.logix.optiflow.data.remote.dto.searchbooking.PatientDto
+import com.logix.optiflow.data.remote.dto.searchbooking.PublishTimeSlotsRequest
+import com.logix.optiflow.data.remote.dto.searchbooking.RateOpticalStoreRequest
 import com.logix.optiflow.data.remote.dto.searchbooking.RegisterPatientRequest
+import com.logix.optiflow.data.remote.dto.searchbooking.RegisterStaffMemberRequest
+import com.logix.optiflow.data.remote.dto.searchbooking.SaveFavoriteStoreRequest
 import com.logix.optiflow.data.remote.dto.searchbooking.StaffMemberDto
+import com.logix.optiflow.data.remote.dto.searchbooking.StoreRatingDto
 import com.logix.optiflow.data.remote.dto.searchbooking.TimeSlotDto
 import com.logix.optiflow.data.remote.dto.searchbooking.UpdateAppointmentStatusRequest
+import com.logix.optiflow.data.remote.dto.searchbooking.UpdateStaffMemberStatusRequest
 import java.util.UUID
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -34,6 +41,24 @@ interface SearchBookingApi {
     suspend fun getTimeSlots(
         @Path("id") opticalStoreId: UUID,
     ): List<TimeSlotDto>
+
+    @POST("optical-stores/{id}/time-slots")
+    suspend fun publishTimeSlots(
+        @Path("id") opticalStoreId: UUID,
+        @Body request: PublishTimeSlotsRequest,
+    ): List<TimeSlotDto>
+
+    @POST("optical-stores/{id}/ratings")
+    suspend fun rateOpticalStore(
+        @Path("id") opticalStoreId: UUID,
+        @Body request: RateOpticalStoreRequest,
+    ): StoreRatingDto
+
+    @POST("patients/{patientId}/favorites")
+    suspend fun saveFavoriteStore(
+        @Path("patientId") patientId: UUID,
+        @Body request: SaveFavoriteStoreRequest,
+    )
 
     @POST("patients")
     suspend fun registerPatient(
@@ -76,6 +101,26 @@ interface SearchBookingApi {
     @GET("staff-members/{id}")
     suspend fun getStaffMember(
         @Path("id") staffMemberId: UUID,
+    ): StaffMemberDto
+
+    @GET("staff-members")
+    suspend fun getStaffMembers(
+        @Query("opticalStoreId") opticalStoreId: UUID? = null,
+    ): List<StaffMemberDto>
+
+    @POST("staff-members")
+    suspend fun registerStaffMember(@Body request: RegisterStaffMemberRequest): StaffMemberDto
+
+    @PATCH("staff-members/{id}/role")
+    suspend fun assignStaffRole(
+        @Path("id") staffMemberId: UUID,
+        @Body request: AssignStaffRoleRequest,
+    ): StaffMemberDto
+
+    @PATCH("staff-members/{id}/status")
+    suspend fun updateStaffMemberStatus(
+        @Path("id") staffMemberId: UUID,
+        @Body request: UpdateStaffMemberStatusRequest,
     ): StaffMemberDto
 
     @GET("patients/{patientId}/appointments")

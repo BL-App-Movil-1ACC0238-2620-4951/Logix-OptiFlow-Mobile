@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -37,9 +38,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.logix.optiflow.R
 import com.logix.optiflow.domain.model.STORE_ZONE
@@ -71,6 +74,7 @@ import com.logix.optiflow.presentation.theme.InfoBanner
 import com.logix.optiflow.presentation.theme.Lavender
 import com.logix.optiflow.presentation.theme.NavyBlue
 import com.logix.optiflow.presentation.theme.SkyTint
+import com.logix.optiflow.presentation.theme.Slate300
 import com.logix.optiflow.presentation.theme.Slate400
 import com.logix.optiflow.presentation.theme.Slate500
 import com.logix.optiflow.presentation.theme.White
@@ -89,8 +93,8 @@ fun MyAppointmentsScreen(nav: NavController) {
     val items =
         state.appointments.filter {
             when (tab) {
-                0 -> !it.isPast && it.status != AppointmentStatus.CANCELLED
-                1 -> it.isPast && it.status != AppointmentStatus.CANCELLED
+                0 -> !it.attended && it.status != AppointmentStatus.CANCELLED
+                1 -> it.attended
                 else -> it.status == AppointmentStatus.CANCELLED
             }
         }
@@ -231,7 +235,7 @@ fun AppointmentDetailScreen(nav: NavController, id: String) {
                 Box(Modifier.clip(CircleShape).background(White).padding(horizontal = 12.dp, vertical = 4.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         LIcon(
-                            if (appointment.status == AppointmentStatus.CONFIRMED) R.drawable.lucide_ic_check else R.drawable.lucide_ic_clock,
+                            if (appointment.status == AppointmentStatus.CONFIRMED || appointment.status == AppointmentStatus.COMPLETED) R.drawable.lucide_ic_check else R.drawable.lucide_ic_clock,
                             DeepNavy,
                             13.dp,
                         )
@@ -268,24 +272,34 @@ fun AppointmentDetailScreen(nav: NavController, id: String) {
                 VSpace(14.dp)
                 DetailLine(R.drawable.lucide_ic_user, "Profesional", appointment.professional, null)
             }
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(InfoBanner)
-                    .border(1.dp, Color(0xFFC3D3F5), RoundedCornerShape(16.dp))
-                    .padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconTile(R.drawable.lucide_ic_bell, Color(0xFFC7D5F7), Electric, size = 40.dp, iconSize = 18.dp, radius = 12.dp)
-                HSpace(12.dp)
-                Column {
-                    Txt("Recordatorio activado", 14, weight = FontWeight.Bold, color = DeepNavy)
-                    Txt("Te avisaremos 24 horas antes.", 12, color = Slate500)
+            if (!appointment.attended) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(InfoBanner)
+                        .border(1.dp, Color(0xFFC3D3F5), RoundedCornerShape(16.dp))
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconTile(R.drawable.lucide_ic_bell, Color(0xFFC7D5F7), Electric, size = 40.dp, iconSize = 18.dp, radius = 12.dp)
+                    HSpace(12.dp)
+                    Column {
+                        Txt("Recordatorio activado", 14, weight = FontWeight.Bold, color = DeepNavy)
+                        Txt("Te avisaremos 24 horas antes.", 12, color = Slate500)
+                    }
                 }
             }
+            val storeId = appointment.storeId
+            if (appointment.attended && storeId != null) {
+                RateStoreCard(
+                    storeName = appointment.storeName,
+                    rated = storeId in state.ratedStoreIds,
+                    onSend = { score, comment, onDone -> vm.rateStore(storeId, score, comment, onDone) },
+                )
+            }
             VSpace(6.dp)
-            if (appointment.status != AppointmentStatus.CANCELLED) {
+            if (appointment.status != AppointmentStatus.CANCELLED && !appointment.attended) {
                 SolidButton(
                     text = "Reprogramar cita",
                     onClick = { nav.navigate(Routes.reschedule(appointment.id)) },
@@ -311,6 +325,79 @@ fun AppointmentDetailScreen(nav: NavController, id: String) {
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun RateStoreCard(
+    storeName: String,
+    rated: Boolean,
+    onSend: (score: Int, comment: String, onDone: (String?) -> Unit) -> Unit,
+) {
+    val context = LocalContext.current
+    var score by rememberSaveable { mutableIntStateOf(0) }
+    var comment by rememberSaveable { mutableStateOf("") }
+    var sending by remember { mutableStateOf(false) }
+
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .card(radius = 20.dp, border = Lavender)
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+    ) {
+        if (rated) {
+            Txt("¡Gracias por calificar!", 15, weight = FontWeight.Bold, color = DeepNavy)
+            VSpace(4.dp)
+            Txt("Tu opinión ayuda a otros pacientes a elegir óptica.", 12, color = Slate500)
+            return@Column
+        }
+        Txt("Califica tu visita", 15, weight = FontWeight.Bold, color = DeepNavy)
+        VSpace(4.dp)
+        Txt("¿Cómo te atendieron en $storeName?", 12, color = Slate500)
+        VSpace(12.dp)
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            (1..5).forEach { value ->
+                LIcon(
+                    R.drawable.lucide_ic_star,
+                    if (value <= score) Electric else Slate300,
+                    30.dp,
+                    Modifier.tap { score = value },
+                )
+            }
+        }
+        VSpace(12.dp)
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .border(1.dp, FieldBorder, RoundedCornerShape(12.dp))
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+        ) {
+            if (comment.isEmpty()) Txt("Comentario (opcional)", 13, color = Slate400)
+            BasicTextField(
+                value = comment,
+                onValueChange = { if (it.length <= 280) comment = it },
+                textStyle = TextStyle(fontSize = 13.sp, color = DeepNavy),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        VSpace(12.dp)
+        SolidButton(
+            text = if (sending) "Enviando..." else "Enviar calificación",
+            onClick = {
+                if (score == 0) {
+                    Toast.makeText(context, "Elige de 1 a 5 estrellas", Toast.LENGTH_SHORT).show()
+                } else if (!sending) {
+                    sending = true
+                    onSend(score, comment) { error ->
+                        sending = false
+                        if (error != null) Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+                    }
+                }
+            },
+            height = 46.dp,
+            fontSize = 15,
+        )
     }
 }
 

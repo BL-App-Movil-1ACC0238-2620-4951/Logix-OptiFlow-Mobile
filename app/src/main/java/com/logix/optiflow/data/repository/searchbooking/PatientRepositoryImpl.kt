@@ -1,6 +1,7 @@
 package com.logix.optiflow.data.repository.searchbooking
 
 import com.logix.optiflow.data.local.PatientSessionStore
+import com.logix.optiflow.data.push.PushTokenProvider
 import com.logix.optiflow.data.mapper.searchbooking.toDomain
 import com.logix.optiflow.data.remote.AuthTokenHolder
 import com.logix.optiflow.data.remote.api.searchbooking.SearchBookingApi
@@ -18,6 +19,7 @@ import javax.inject.Singleton
 class PatientRepositoryImpl @Inject constructor(
     private val api: SearchBookingApi,
     private val sessionStore: PatientSessionStore,
+    private val pushTokenProvider: PushTokenProvider,
 ) : PatientRepository {
 
     override suspend fun register(
@@ -45,6 +47,25 @@ class PatientRepositoryImpl @Inject constructor(
                 token = null,
             )
             patient
+        }
+
+    override suspend fun registerByStaff(
+        name: String,
+        email: String,
+        phone: String,
+        password: String,
+        birthDate: String?,
+    ): Result<Patient> =
+        safeApiCall {
+            api.registerPatient(
+                RegisterPatientRequest(
+                    name = name,
+                    email = email,
+                    phone = phone,
+                    password = password,
+                    birthDate = birthDate,
+                ),
+            ).toDomain()
         }
 
     override suspend fun login(
@@ -89,6 +110,8 @@ class PatientRepositoryImpl @Inject constructor(
 
     override suspend fun clearSession() {
         AuthTokenHolder.token = null
+        // Sin sesión el celular ya no debe recibir los push del paciente.
+        runCatching { pushTokenProvider.deleteToken() }
         sessionStore.clear()
     }
 }

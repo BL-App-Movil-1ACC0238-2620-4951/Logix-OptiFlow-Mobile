@@ -5,6 +5,11 @@ import com.logix.optiflow.data.remote.AuthInterceptor
 import com.logix.optiflow.data.remote.AuthTokenHolder
 import com.logix.optiflow.data.remote.SessionEvents
 import com.logix.optiflow.data.remote.UnauthorizedInterceptor
+import com.logix.optiflow.data.remote.api.clinical.ClinicalApi
+import com.logix.optiflow.data.remote.api.inventory.InventoryApi
+import com.logix.optiflow.data.remote.api.report.ReportApi
+import com.logix.optiflow.data.remote.api.notification.NotificationApi
+import com.logix.optiflow.data.remote.api.production.ProductionApi
 import com.logix.optiflow.data.remote.api.searchbooking.SearchBookingApi
 import com.logix.optiflow.data.remote.json.InstantJsonAdapter
 import com.logix.optiflow.data.remote.json.UuidJsonAdapter
@@ -72,4 +77,29 @@ object NetworkModule {
     @Singleton
     fun provideSearchBookingApi(retrofit: Retrofit): SearchBookingApi =
         retrofit.create(SearchBookingApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideInventoryApi(retrofit: Retrofit): InventoryApi =
+        retrofit.create(InventoryApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideReportApi(retrofit: Retrofit): ReportApi =
+        retrofit.create(ReportApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideNotificationApi(retrofit: Retrofit): NotificationApi =
+        retrofit.create(NotificationApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideProductionApi(retrofit: Retrofit): ProductionApi =
+        retrofit.create(ProductionApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideClinicalApi(retrofit: Retrofit): ClinicalApi =
+        retrofit.create(ClinicalApi::class.java)
 }

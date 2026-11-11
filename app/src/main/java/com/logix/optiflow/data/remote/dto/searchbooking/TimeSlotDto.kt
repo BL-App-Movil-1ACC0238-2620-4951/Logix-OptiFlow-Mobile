@@ -10,3 +10,7 @@ data class TimeSlotDto(
     val endDateTime: Instant,
     val status: String,
 )
+
+data class PublishTimeSlotsRequest(val timeSlots: List<SlotRequest>)
+
+data class SlotRequest(val startDateTime: Instant, val endDateTime: Instant)

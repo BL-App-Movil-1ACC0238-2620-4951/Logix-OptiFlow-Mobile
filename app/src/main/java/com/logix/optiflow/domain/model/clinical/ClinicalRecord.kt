@@ -10,7 +10,14 @@ data class ClinicalRecord(
     val examinationDate: Instant?,
     val observations: String?,
     val status: String?,
+    val medicalHistory: MedicalHistory?,
     val prescription: OpticalPrescription?,
+)
+
+data class MedicalHistory(
+    val allergies: List<String>,
+    val previousConditions: List<String>,
+    val familyOcularHistory: String?,
 )
 
 data class OpticalPrescription(

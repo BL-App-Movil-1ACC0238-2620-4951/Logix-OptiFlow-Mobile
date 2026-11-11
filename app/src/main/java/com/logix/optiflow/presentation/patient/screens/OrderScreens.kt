@@ -54,6 +54,7 @@ import com.logix.optiflow.presentation.shared.components.card
 import com.logix.optiflow.presentation.shared.components.tap
 import com.logix.optiflow.presentation.theme.DeepNavy
 import com.logix.optiflow.presentation.theme.Electric
+import com.logix.optiflow.presentation.theme.ErrorRed
 import com.logix.optiflow.presentation.theme.Lavender
 import com.logix.optiflow.presentation.theme.NavyBlue
 import com.logix.optiflow.presentation.theme.Periwinkle
@@ -196,9 +197,18 @@ fun OrderTrackingScreen(nav: NavController, id: String) {
     val steps =
         listOf(
             Triple("Pedido recibido", order.history.getOrNull(0) ?: "—", R.drawable.lucide_ic_check),
-            Triple("Pago confirmado", order.history.getOrNull(1) ?: order.history.getOrNull(0) ?: "—", R.drawable.lucide_ic_check),
-            Triple("En producción", "Trabajando en tus lentes", R.drawable.lucide_ic_eye),
-            Triple("Listo para retirar", "Próximamente", R.drawable.lucide_ic_package),
+            // La orden nace al cerrar la venta, ya pagada.
+            Triple("Pago confirmado", order.statusDates["PENDING"] ?: order.history.getOrNull(0) ?: "—", R.drawable.lucide_ic_check),
+            Triple(
+                "En producción",
+                order.statusDates["IN_WORKSHOP"] ?: if (order.step >= 2) "Trabajando en tus lentes" else "Pendiente",
+                R.drawable.lucide_ic_eye,
+            ),
+            Triple(
+                if (order.delivered) "Entregado" else "Listo para retirar",
+                order.statusDates[if (order.delivered) "DELIVERED" else "READY_FOR_DELIVERY"] ?: "Pendiente",
+                R.drawable.lucide_ic_package,
+            ),
         )
 
     PatientScreen(
@@ -235,13 +245,25 @@ fun OrderTrackingScreen(nav: NavController, id: String) {
                 )
                 VSpace(14.dp)
                 Txt(
-                    if (order.delivered) "Tus lentes fueron entregados" else "Tus lentes están en proceso",
+                    when {
+                        order.delivered -> "Tus lentes fueron entregados"
+                        order.step >= 3 -> "Tus lentes están listos para retirar"
+                        else -> "Tus lentes están en proceso"
+                    },
                     18,
                     weight = FontWeight.Bold,
                     color = DeepNavy,
                 )
                 VSpace(6.dp)
-                Txt("Entrega estimada entre el ${order.estimate}.", 13, color = Slate500)
+                Txt(
+                    if (order.delivered) "Gracias por confiar en nosotros." else "Entrega estimada: ${order.estimate}.",
+                    13,
+                    color = Slate500,
+                )
+                order.delayReason?.let {
+                    VSpace(6.dp)
+                    Txt("Tu pedido tiene un retraso: $it", 13, color = ErrorRed)
+                }
             }
             VSpace(22.dp)
             Txt("Seguimiento", 16, weight = FontWeight.Bold, color = DeepNavy)

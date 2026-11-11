@@ -10,4 +10,5 @@ fun StaffMemberDto.toDomain(): StaffMember =
         name = name,
         email = email,
         role = role,
+        active = active ?: true,
     )

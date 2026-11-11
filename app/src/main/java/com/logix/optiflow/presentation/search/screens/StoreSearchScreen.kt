@@ -183,7 +183,12 @@ fun StoreSearchScreen(nav: NavController) {
             state.infoMessage?.let { Txt(it, 12, color = Slate500) }
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 stores.forEachIndexed { index, store ->
-                    StoreCard(store, index) { nav.navigate(Routes.book(store.id)) }
+                    StoreCard(
+                        store = store,
+                        index = index,
+                        isFavorite = store.id in state.favoriteStoreIds,
+                        onFavorite = { viewModel.saveFavorite(store.id) },
+                    ) { nav.navigate(Routes.book(store.id)) }
                 }
             }
             VSpace(24.dp)
@@ -283,7 +288,13 @@ private fun MapPin(modifier: Modifier) {
 }
 
 @Composable
-private fun StoreCard(store: OpticalStore, index: Int, onClick: () -> Unit) {
+private fun StoreCard(
+    store: OpticalStore,
+    index: Int,
+    isFavorite: Boolean,
+    onFavorite: () -> Unit,
+    onClick: () -> Unit,
+) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -311,6 +322,9 @@ private fun StoreCard(store: OpticalStore, index: Int, onClick: () -> Unit) {
                 Txt("$rating · ${distances[index % distances.size]}", 12, color = Slate500)
             }
             Txt("Examen visual · Lentes · Monturas", 11, color = Slate400, maxLines = 1)
+        }
+        Box(Modifier.size(36.dp).clip(CircleShape).tap(onFavorite), contentAlignment = Alignment.Center) {
+            LIcon(R.drawable.lucide_ic_heart, if (isFavorite) Electric else Slate400, 20.dp)
         }
         LIcon(R.drawable.lucide_ic_chevron_right, Slate500, 20.dp)
     }

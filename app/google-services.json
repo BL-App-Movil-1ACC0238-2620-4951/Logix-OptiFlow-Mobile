@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "81795022595",
+    "project_id": "optiflow-d5022",
+    "storage_bucket": "optiflow-d5022.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:81795022595:android:b2b6fea0874d8dc6e13336",
+        "android_client_info": {
+          "package_name": "com.logix.optiflow"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBT2P1yFakOxKB9iHbpjxI_gJ7kPJ4OiZ4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

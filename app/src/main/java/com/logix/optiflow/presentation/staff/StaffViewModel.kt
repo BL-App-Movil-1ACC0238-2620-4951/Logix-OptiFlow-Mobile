@@ -4,11 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.logix.optiflow.data.demo.AgendaItem
 import com.logix.optiflow.data.demo.AgendaStatus
-import com.logix.optiflow.data.demo.DemoData
 import com.logix.optiflow.data.demo.ProductionOrder
 import com.logix.optiflow.data.demo.ProductionStage
 import com.logix.optiflow.data.demo.StaffPatient
 import com.logix.optiflow.data.remote.SessionEvents
+import com.logix.optiflow.data.remote.toUserMessage
 import com.logix.optiflow.domain.model.STORE_ZONE
 import com.logix.optiflow.domain.model.production.WorkOrder
 import com.logix.optiflow.domain.model.searchbooking.Appointment
@@ -21,6 +21,7 @@ import com.logix.optiflow.domain.repository.searchbooking.OpticalStoreRepository
 import com.logix.optiflow.domain.repository.searchbooking.PatientRepository
 import com.logix.optiflow.domain.repository.searchbooking.StaffMemberRepository
 import com.logix.optiflow.domain.usecase.searchbooking.GetPatientSessionUseCase
+import com.logix.optiflow.domain.usecase.searchbooking.RegisterPatientByStaffUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Duration
 import java.time.Instant
@@ -41,6 +42,10 @@ data class StaffUiState(
     val role: StaffRole? = null,
     val staffName: String = "",
     val storeName: String = "",
+    /** Óptica del usuario; la cotización la usa para mostrar el stock. */
+    val storeId: UUID? = null,
+    /** Id del usuario del personal; el admin no puede cambiarse el rol ni desactivarse. */
+    val staffId: UUID? = null,
     val patients: List<StaffPatient> = emptyList(),
     val patientsFromApi: Boolean = false,
     val newPatientsThisMonth: Int = 0,
@@ -51,9 +56,6 @@ data class StaffUiState(
     val agendaFromApi: Boolean = false,
     val productionOrders: List<ProductionOrder> = emptyList(),
     val productionFromApi: Boolean = false,
-    val stock: Map<String, Int> = DemoData.products.associate { it.id to it.available },
-    val clinicalStage: Int = 1,
-    val workOrderSent: Boolean = false,
 ) {
     val firstName: String get() = staffName.trim().substringBefore(' ')
     val initials: String
@@ -71,8 +73,7 @@ private val DAY_LABEL: DateTimeFormatter = DateTimeFormatter.ofPattern("EEEE d M
 
 /**
  * Estado del personal clínico. El directorio viene de `GET /patients`, las órdenes de trabajo de
- * `GET /work-orders` y la agenda del día de `GET /appointments` de la óptica del usuario; el
- * inventario usa datos de demostración.
+ * `GET /work-orders` y la agenda del día de `GET /appointments` de la óptica del usuario.
  */
 @HiltViewModel
 class StaffViewModel @Inject constructor(
@@ -83,6 +84,7 @@ class StaffViewModel @Inject constructor(
     private val clinicalRecordRepository: ClinicalRecordRepository,
     private val opticalStoreRepository: OpticalStoreRepository,
     private val getSession: GetPatientSessionUseCase,
+    private val registerPatientByStaff: RegisterPatientByStaffUseCase,
     sessionEvents: SessionEvents,
 ) : ViewModel() {
 
@@ -119,7 +121,7 @@ class StaffViewModel @Inject constructor(
     private fun loadProfile(staffId: UUID) {
         viewModelScope.launch {
             val member = staffMemberRepository.getStaffMember(staffId).getOrNull() ?: return@launch
-            _uiState.update { it.copy(staffName = member.name) }
+            _uiState.update { it.copy(staffName = member.name, storeId = member.opticalStoreId, staffId = member.id) }
             opticalStoreRepository.getOpticalStores().getOrNull()
                 ?.firstOrNull { it.id == member.opticalStoreId }
                 ?.let { store -> _uiState.update { it.copy(storeName = store.name) } }
@@ -231,6 +233,7 @@ class StaffViewModel @Inject constructor(
             name = name,
             service = "Evaluación visual",
             status = status,
+            appointmentId = dto.id.toString(),
         )
     }
 
@@ -247,36 +250,26 @@ class StaffViewModel @Inject constructor(
         }
     }
 
-    fun addPatient(name: String, phone: String, rut: String): StaffPatient {
-        val clean = name.trim().ifBlank { "Paciente nuevo" }
-        val initials = clean.split(' ').filter { it.isNotBlank() }.take(2).joinToString("") { it.first().uppercase() }
-        val patient =
-            StaffPatient(
-                id = "new-${System.currentTimeMillis()}",
-                initials = initials,
-                name = clean.split(' ').take(2).joinToString(" "),
-                fullName = clean,
-                rut = rut.ifBlank { "—" },
-                note = "Nuevo paciente",
-                phone = phone.ifBlank { "—" },
-                lastVisit = "—",
-                ficha = "OPT-2024-" + (900..999).random(),
-                age = 30,
-            )
-        _uiState.update { it.copy(patients = listOf(patient) + it.patients) }
-        return patient
-    }
-
-    fun adjustStock(productId: String, delta: Int) {
-        _uiState.update { state ->
-            val current = state.stock[productId] ?: 0
-            state.copy(stock = state.stock + (productId to (current + delta).coerceAtLeast(0)))
+    /** US02: el personal registra al paciente con `POST /patients`; el DNI queda como contraseña temporal. */
+    fun registerPatient(
+        name: String,
+        email: String,
+        phone: String,
+        dni: String,
+        birthDate: String?,
+        onDone: (patientId: String?, error: String?) -> Unit,
+    ) {
+        viewModelScope.launch {
+            registerPatientByStaff(name, email, phone, dni, birthDate)
+                .onSuccess { patient ->
+                    patientNames[patient.id] = patient.name
+                    _uiState.update { it.copy(patients = listOf(toStaffPatient(patient)) + it.patients) }
+                    onDone(patient.id.toString(), null)
+                    refreshPatients()
+                }
+                .onFailure { error -> onDone(null, error.toUserMessage()) }
         }
     }
-
-    fun setClinicalStage(stage: Int) = _uiState.update { it.copy(clinicalStage = stage) }
-
-    fun markWorkOrderSent() = _uiState.update { it.copy(workOrderSent = true) }
 
     private companion object {
         const val WAITING_WINDOW_MINUTES = 15L
@@ -302,10 +295,11 @@ class StaffViewModel @Inject constructor(
         return ProductionOrder(
             code = "OT-" + dto.id.toString().take(4).uppercase(Locale.US),
             patient = patientName,
-            detail = dto.lenses.firstOrNull()?.specifications ?: "Monofocal 1.60",
+            detail = dto.lenses.firstOrNull()?.specifications ?: "Sin lentes",
             stage = stage,
             due = due,
             needsAttention = dto.delayed,
+            id = dto.id.toString(),
         )
     }
 }
