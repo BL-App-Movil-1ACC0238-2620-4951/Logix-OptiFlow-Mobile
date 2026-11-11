@@ -13,6 +13,7 @@ object Routes {
     const val P_NOTIFICATIONS = "p/notifications"
     const val P_SEARCH = "p/search"
     const val P_CATALOG = "p/catalog"
+    const val P_STORE_MAP = "p/search/map"
     const val P_FRAME = "p/frame/{id}"
     const val P_TRYON = "p/tryon/{id}"
     const val P_PRESCRIPTION = "p/prescription"

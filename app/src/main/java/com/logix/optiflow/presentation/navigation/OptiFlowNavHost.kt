@@ -36,6 +36,7 @@ import com.logix.optiflow.presentation.patient.screens.PurchasesScreen
 import com.logix.optiflow.presentation.patient.screens.RescheduleScreen
 import com.logix.optiflow.presentation.patient.screens.SettingsScreen
 import com.logix.optiflow.presentation.patient.screens.TryOnScreen
+import com.logix.optiflow.presentation.search.screens.StoreMapScreen
 import com.logix.optiflow.presentation.search.screens.StoreSearchScreen
 import com.logix.optiflow.presentation.staff.screens.AlertsScreen
 import com.logix.optiflow.presentation.staff.screens.ClinicalCareScreen
@@ -109,6 +110,7 @@ fun OptiFlowNavHost(
         composable(Routes.P_HOME) { PatientHomeScreen(navController) }
         composable(Routes.P_NOTIFICATIONS) { NotificationsScreen(navController) }
         composable(Routes.P_SEARCH) { StoreSearchScreen(navController) }
+        composable(Routes.P_STORE_MAP) { StoreMapScreen(navController) }
         composable(Routes.P_CATALOG) { CatalogScreen(navController) }
         composable(Routes.P_FRAME) { FrameDetailScreen(navController, it.arg("id")) }
         composable(Routes.P_TRYON) { TryOnScreen(navController, it.arg("id")) }
