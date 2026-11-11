@@ -97,6 +97,10 @@ dependencies {
     implementation(libs.firebase.messaging)
     implementation(libs.osmdroid.android)
     implementation(libs.play.services.location)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.view)
+    implementation(libs.androidx.camera.mlkit.vision)
+    implementation(libs.mlkit.barcode.scanning)
 
     val composeBom = platform(libs.androidx.compose.bom)
     implementation(composeBom)
