@@ -5,8 +5,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.logix.optiflow.domain.model.STORE_ZONE
 import com.logix.optiflow.domain.model.clinical.OpticalPrescription
+import com.logix.optiflow.domain.model.clinical.SaleStatus
 import com.logix.optiflow.domain.model.production.WorkOrderStatus
 import com.logix.optiflow.domain.usecase.clinical.GetPatientClinicalRecordsUseCase
+import com.logix.optiflow.domain.usecase.clinical.GetPatientSalesUseCase
+import com.logix.optiflow.domain.usecase.clinical.GetQuotationUseCase
 import com.logix.optiflow.domain.usecase.production.GetWorkOrdersUseCase
 import com.logix.optiflow.domain.usecase.searchbooking.GetPatientAppointmentsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -53,12 +56,20 @@ data class StaffLensOrderUi(
     val dueLabel: String,
 )
 
+/** Venta del paciente que todavía no se cerró, de cualquiera de sus fichas. */
+data class StaffOpenSaleUi(
+    val id: String,
+    val statusLabel: String,
+    val detail: String,
+)
+
 data class StaffPatientRecordUiState(
     val isLoading: Boolean = true,
     val lastVisit: String? = null,
     val prescription: StaffPrescriptionUi? = null,
     val nextAppointment: StaffNextAppointmentUi? = null,
     val lensOrder: StaffLensOrderUi? = null,
+    val openSales: List<StaffOpenSaleUi> = emptyList(),
 )
 
 /**
@@ -71,6 +82,8 @@ class StaffPatientRecordViewModel @Inject constructor(
     private val getPatientRecords: GetPatientClinicalRecordsUseCase,
     private val getPatientAppointments: GetPatientAppointmentsUseCase,
     private val getWorkOrders: GetWorkOrdersUseCase,
+    private val getPatientSales: GetPatientSalesUseCase,
+    private val getQuotation: GetQuotationUseCase,
 ) : ViewModel() {
 
     private val patientId: UUID? =
@@ -140,6 +153,35 @@ class StaffPatientRecordViewModel @Inject constructor(
                             statusLabel = if (appointment.status == "PENDING") "Pendiente" else "Confirmada",
                             timeLabel = TIME_FORMAT.format(start) + " · Evaluación visual",
                             canStartCare = start.toLocalDate() == LocalDate.now(STORE_ZONE),
+                        )
+                    },
+                )
+            }
+        }
+    }
+
+    /**
+     * Ventas sin cerrar del paciente (`GET /patients/{id}/sales`), para cobrarlas o cerrarlas aunque
+     * sean de una ficha anterior. Solo la usan los roles que venden.
+     */
+    fun loadOpenSales() {
+        val id = patientId ?: return
+        viewModelScope.launch {
+            val sales = getPatientSales(id).getOrNull()?.filter { it.status != SaleStatus.CLOSED } ?: return@launch
+            // Sin pago el backend no manda el monto: se toma el total de la cotización.
+            val totals = sales.map { sale ->
+                async { sale.amount ?: sale.quotationId?.let { getQuotation(it).getOrNull()?.total } }
+            }.map { it.await() }
+            _uiState.update { state ->
+                state.copy(
+                    openSales = sales.mapIndexed { index, sale ->
+                        StaffOpenSaleUi(
+                            id = sale.id.toString(),
+                            statusLabel = if (sale.status == SaleStatus.PAID) "Pagada · por cerrar" else "Pendiente de pago",
+                            detail = listOfNotNull(
+                                sale.date?.let { DATE_FORMAT.format(it.atZone(STORE_ZONE)) },
+                                totals[index]?.let { String.format(Locale.US, "S/ %.2f", it) },
+                            ).joinToString(" · ").ifBlank { "Venta registrada" },
                         )
                     },
                 )

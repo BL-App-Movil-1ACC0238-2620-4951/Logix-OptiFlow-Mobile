@@ -36,6 +36,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.navigation.NavController
 import com.logix.optiflow.R
 import com.logix.optiflow.data.demo.ProductionStage
@@ -448,6 +449,34 @@ fun StaffPatientRecordScreen(nav: NavController, id: String) {
                 }
                 VSpace(8.dp)
                 Txt(lensOrder.dueLabel, 9, color = StaffAccent, family = Inter)
+            }
+        }
+        if (state.role.can(StaffFeature.QUOTES)) {
+            // Se relee al volver de la venta, para que desaparezca la que se acaba de cerrar.
+            LifecycleResumeEffect(id) {
+                recordVm.loadOpenSales()
+                onPauseOrDispose {}
+            }
+            if (record.openSales.isNotEmpty()) {
+                VSpace(24.dp)
+                StaffSectionTitle("Ventas por cerrar")
+                VSpace(12.dp)
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    record.openSales.forEach { sale ->
+                        Row(
+                            Modifier.fillMaxWidth().staffCard().tap { nav.navigate(Routes.sale(sale.id, patient.id)) }.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            StaffIconTile(R.drawable.lucide_ic_file_text, size = 36.dp, background = StaffSoft)
+                            HSpace(12.dp)
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                StaffPill(sale.statusLabel, icon = R.drawable.lucide_ic_clock)
+                                Txt(sale.detail, 12, color = StaffInk, family = Inter)
+                            }
+                            LIcon(R.drawable.lucide_ic_chevron_right, StaffInk, 20.dp)
+                        }
+                    }
+                }
             }
         }
         VSpace(18.dp)
