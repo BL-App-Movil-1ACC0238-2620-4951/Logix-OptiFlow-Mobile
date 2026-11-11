@@ -169,7 +169,16 @@ fun PatientHomeScreen(nav: NavController, catalogVm: CatalogViewModel = hiltView
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(6.dp).clip(CircleShape).background(Electric))
                             HSpace(4.dp)
-                            Txt(if (state.prescription != null) "1 activa" else "Sin recetas", 10, weight = FontWeight.Medium, color = Slate500)
+                            Txt(
+                                when (val count = state.prescriptions.size) {
+                                    0 -> "Sin recetas"
+                                    1 -> "1 receta"
+                                    else -> "$count recetas"
+                                },
+                                10,
+                                weight = FontWeight.Medium,
+                                color = Slate500,
+                            )
                         }
                     }
                     QuickAccess(
