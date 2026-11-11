@@ -29,23 +29,29 @@ import com.logix.optiflow.presentation.patient.screens.MyAppointmentsScreen
 import com.logix.optiflow.presentation.patient.screens.MyOrdersScreen
 import com.logix.optiflow.presentation.patient.screens.OrderTrackingScreen
 import com.logix.optiflow.presentation.patient.screens.PatientHomeScreen
+import com.logix.optiflow.presentation.patient.screens.PrescriptionListScreen
 import com.logix.optiflow.presentation.patient.screens.PrescriptionScreen
 import com.logix.optiflow.presentation.patient.screens.ProfileScreen
+import com.logix.optiflow.presentation.patient.screens.PurchasesScreen
 import com.logix.optiflow.presentation.patient.screens.RescheduleScreen
 import com.logix.optiflow.presentation.patient.screens.SettingsScreen
 import com.logix.optiflow.presentation.patient.screens.TryOnScreen
 import com.logix.optiflow.presentation.search.screens.StoreSearchScreen
 import com.logix.optiflow.presentation.staff.screens.AlertsScreen
 import com.logix.optiflow.presentation.staff.screens.ClinicalCareScreen
-import com.logix.optiflow.presentation.staff.screens.ConfirmSaleScreen
+import com.logix.optiflow.presentation.staff.screens.SaleScreen
 import com.logix.optiflow.presentation.staff.screens.NewAppointmentScreen
+import com.logix.optiflow.presentation.staff.screens.NewFrameScreen
 import com.logix.optiflow.presentation.staff.screens.NewMovementScreen
 import com.logix.optiflow.presentation.staff.screens.NewPatientScreen
 import com.logix.optiflow.presentation.staff.screens.ProductDetailScreen
 import com.logix.optiflow.presentation.staff.screens.ProductionScreen
+import com.logix.optiflow.presentation.staff.screens.QuotePatientPickerScreen
 import com.logix.optiflow.presentation.staff.screens.QuoteScreen
 import com.logix.optiflow.presentation.staff.screens.ReportsScreen
-import com.logix.optiflow.presentation.staff.screens.SaleDoneScreen
+import com.logix.optiflow.presentation.staff.screens.ScheduleScreen
+import com.logix.optiflow.presentation.staff.screens.StaffMembersScreen
+import com.logix.optiflow.presentation.staff.screens.SuppliersScreen
 import com.logix.optiflow.presentation.staff.screens.ScannerScreen
 import com.logix.optiflow.presentation.staff.screens.StaffAgendaScreen
 import com.logix.optiflow.presentation.staff.screens.StaffDashboardScreen
@@ -54,7 +60,6 @@ import com.logix.optiflow.presentation.staff.screens.StaffMoreScreen
 import com.logix.optiflow.presentation.staff.screens.StaffPatientRecordScreen
 import com.logix.optiflow.presentation.staff.screens.StaffPatientsScreen
 import com.logix.optiflow.presentation.staff.screens.StockManagementScreen
-import com.logix.optiflow.presentation.staff.screens.VisualEvaluationScreen
 import com.logix.optiflow.presentation.staff.screens.WorkOrderScreen
 import com.logix.optiflow.presentation.theme.LoginGradientTop
 
@@ -62,7 +67,11 @@ private const val SETTINGS_PATTERN = "p/settings?staff={staff}"
 private const val BOOK_ARG = "storeId"
 
 @Composable
-fun OptiFlowNavHost(sessionViewModel: SessionViewModel = hiltViewModel()) {
+fun OptiFlowNavHost(
+    openNotifications: Boolean = false,
+    onNotificationsOpened: () -> Unit = {},
+    sessionViewModel: SessionViewModel = hiltViewModel(),
+) {
     val navController = rememberNavController()
     val startDestination by sessionViewModel.startDestination.collectAsState()
     val context = LocalContext.current
@@ -76,6 +85,15 @@ fun OptiFlowNavHost(sessionViewModel: SessionViewModel = hiltViewModel()) {
     if (start == null) {
         Box(Modifier.fillMaxSize().background(LoginGradientTop))
         return
+    }
+
+    LaunchedEffect(openNotifications) {
+        if (!openNotifications) return@LaunchedEffect
+        // Solo el paciente recibe push; sin sesión de paciente se queda donde está.
+        if (navController.currentDestination?.route?.startsWith("p/") == true) {
+            navController.navigate(Routes.P_NOTIFICATIONS) { launchSingleTop = true }
+        }
+        onNotificationsOpened()
     }
 
     NavHost(navController = navController, startDestination = start) {
@@ -96,6 +114,8 @@ fun OptiFlowNavHost(sessionViewModel: SessionViewModel = hiltViewModel()) {
         composable(Routes.P_TRYON) { TryOnScreen(navController, it.arg("id")) }
         composable(Routes.P_PRESCRIPTION) { PrescriptionScreen(navController, editable = false) }
         composable(Routes.P_PRESCRIPTION_EDIT) { PrescriptionScreen(navController, editable = true) }
+        composable(Routes.P_PRESCRIPTIONS) { PrescriptionListScreen(navController) }
+        composable(Routes.P_PRESCRIPTION_DETAIL) { PrescriptionScreen(navController, editable = false, recordId = it.arg("id")) }
         composable(Routes.P_APPOINTMENTS) { MyAppointmentsScreen(navController) }
         composable(Routes.P_APPOINTMENT) { AppointmentDetailScreen(navController, it.arg("id")) }
         composable(Routes.P_RESCHEDULE) { RescheduleScreen(navController, it.arg("id")) }
@@ -114,6 +134,7 @@ fun OptiFlowNavHost(sessionViewModel: SessionViewModel = hiltViewModel()) {
         composable(Routes.P_ORDER) { OrderTrackingScreen(navController, it.arg("id")) }
         composable(Routes.P_PROFILE) { ProfileScreen(navController) }
         composable(Routes.P_HISTORY) { ClinicalHistoryScreen(navController) }
+        composable(Routes.P_PURCHASES) { PurchasesScreen(navController) }
         composable(
             route = SETTINGS_PATTERN,
             arguments =
@@ -133,20 +154,43 @@ fun OptiFlowNavHost(sessionViewModel: SessionViewModel = hiltViewModel()) {
         composable(Routes.S_MORE) { StaffMoreScreen(navController) }
         composable(Routes.S_NEW_PATIENT) { NewPatientScreen(navController) }
         composable(Routes.S_PATIENT) { StaffPatientRecordScreen(navController, it.arg("id")) }
-        composable(Routes.S_NEW_APPOINTMENT) { NewAppointmentScreen(navController) }
-        composable(Routes.S_CLINICAL) { ClinicalCareScreen(navController) }
-        composable(Routes.S_EVALUATION) { VisualEvaluationScreen(navController) }
+        composable(
+            route = Routes.S_NEW_APPOINTMENT,
+            arguments =
+                listOf(
+                    navArgument("patientId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                ),
+        ) { NewAppointmentScreen(navController, it.arguments?.getString("patientId")) }
+        composable(Routes.S_CLINICAL) { ClinicalCareScreen(navController, it.arg("patientId")) }
         composable(Routes.S_WORK_ORDER) { WorkOrderScreen(navController) }
         composable(Routes.S_PRODUCTION) { ProductionScreen(navController) }
-        composable(Routes.S_QUOTE) { QuoteScreen(navController) }
-        composable(Routes.S_SALE) { ConfirmSaleScreen(navController) }
-        composable(Routes.S_SALE_DONE) { SaleDoneScreen(navController) }
+        composable(Routes.S_QUOTE) { QuotePatientPickerScreen(navController) }
+        composable(Routes.S_QUOTE_PATIENT) { QuoteScreen(navController, it.arg("patientId")) }
+        composable(Routes.S_SALE) { SaleScreen(navController, it.arg("patientId")) }
         composable(Routes.S_SCANNER) { ScannerScreen(navController) }
-        composable(Routes.S_PRODUCT) { ProductDetailScreen(navController, it.arg("id")) }
-        composable(Routes.S_STOCK) { StockManagementScreen(navController, it.arg("id")) }
-        composable(Routes.S_MOVEMENT) { NewMovementScreen(navController) }
+        composable(Routes.S_PRODUCT) { ProductDetailScreen(navController) }
+        composable(Routes.S_STOCK) { StockManagementScreen(navController) }
+        composable(
+            route = Routes.S_MOVEMENT,
+            arguments =
+                listOf(
+                    navArgument("sku") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                ),
+        ) { NewMovementScreen(navController) }
+        composable(Routes.S_NEW_FRAME) { NewFrameScreen(navController) }
         composable(Routes.S_ALERTS) { AlertsScreen(navController) }
         composable(Routes.S_REPORTS) { ReportsScreen(navController) }
+        composable(Routes.S_STAFF_MEMBERS) { StaffMembersScreen(navController) }
+        composable(Routes.S_SUPPLIERS) { SuppliersScreen(navController) }
+        composable(Routes.S_SCHEDULE) { ScheduleScreen(navController) }
     }
 }
 
