@@ -3,8 +3,10 @@ package com.logix.optiflow.data.repository.inventory
 import com.logix.optiflow.data.mapper.inventory.toDomain
 import com.logix.optiflow.data.remote.api.inventory.InventoryApi
 import com.logix.optiflow.data.remote.dto.inventory.AddFrameModelRequest
+import com.logix.optiflow.data.remote.dto.inventory.FrameModelDto
 import com.logix.optiflow.data.remote.dto.inventory.UpdateFramePriceRequest
 import com.logix.optiflow.data.remote.safeApiCall
+import com.logix.optiflow.data.repository.offline.OfflineDataRepositoryImpl
 import com.logix.optiflow.domain.model.inventory.FrameModel
 import com.logix.optiflow.domain.repository.inventory.FrameModelRepository
 import java.util.UUID
@@ -14,10 +16,11 @@ import javax.inject.Singleton
 @Singleton
 class FrameModelRepositoryImpl @Inject constructor(
     private val api: InventoryApi,
+    private val offline: OfflineDataRepositoryImpl,
 ) : FrameModelRepository {
 
     override suspend fun getFrameCatalog(): Result<List<FrameModel>> =
-        safeApiCall { api.getFrameCatalog().map { it.toDomain() } }
+        offline.list("frames", FrameModelDto::class.java) { api.getFrameCatalog() }.map { dtos -> dtos.map { it.toDomain() } }
 
     override suspend fun getFrame(sku: String, opticalStoreId: UUID?): Result<FrameModel> =
         safeApiCall { api.getFrame(sku, opticalStoreId).toDomain() }

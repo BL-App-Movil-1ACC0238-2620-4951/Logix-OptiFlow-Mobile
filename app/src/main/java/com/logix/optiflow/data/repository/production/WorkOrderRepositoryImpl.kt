@@ -8,7 +8,9 @@ import com.logix.optiflow.data.remote.dto.production.CompleteLensesRequest
 import com.logix.optiflow.data.remote.dto.production.NotifyDelayRequest
 import com.logix.optiflow.data.remote.dto.production.SendToLaboratoryRequest
 import com.logix.optiflow.data.remote.dto.production.UpdateWorkOrderStatusRequest
+import com.logix.optiflow.data.remote.dto.production.WorkOrderDto
 import com.logix.optiflow.data.remote.safeApiCall
+import com.logix.optiflow.data.repository.offline.OfflineDataRepositoryImpl
 import com.logix.optiflow.domain.model.production.NamedRef
 import com.logix.optiflow.domain.model.production.WorkOrder
 import com.logix.optiflow.domain.repository.production.WorkOrderRepository
@@ -20,13 +22,16 @@ import javax.inject.Singleton
 class WorkOrderRepositoryImpl @Inject constructor(
     private val api: SearchBookingApi,
     private val production: ProductionApi,
+    private val offline: OfflineDataRepositoryImpl,
 ) : WorkOrderRepository {
 
     override suspend fun getPatientWorkOrders(patientId: UUID): Result<List<WorkOrder>> =
-        safeApiCall { api.getPatientWorkOrders(patientId).map { it.toDomain() } }
+        offline.list("work-orders/$patientId", WorkOrderDto::class.java) { api.getPatientWorkOrders(patientId) }
+            .map { dtos -> dtos.map { it.toDomain() } }
 
     override suspend fun getWorkOrders(): Result<List<WorkOrder>> =
-        safeApiCall { api.getWorkOrders().map { it.toDomain() } }
+        offline.list("work-orders", WorkOrderDto::class.java) { api.getWorkOrders() }
+            .map { dtos -> dtos.map { it.toDomain() } }
 
     override suspend fun getWorkOrder(id: UUID): Result<WorkOrder> =
         safeApiCall { production.getWorkOrder(id).toDomain() }

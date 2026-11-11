@@ -4,8 +4,10 @@ import com.logix.optiflow.data.mapper.searchbooking.toDomain
 import com.logix.optiflow.data.remote.api.searchbooking.SearchBookingApi
 import com.logix.optiflow.data.remote.dto.searchbooking.AssignStaffRoleRequest
 import com.logix.optiflow.data.remote.dto.searchbooking.RegisterStaffMemberRequest
+import com.logix.optiflow.data.remote.dto.searchbooking.StaffMemberDto
 import com.logix.optiflow.data.remote.dto.searchbooking.UpdateStaffMemberStatusRequest
 import com.logix.optiflow.data.remote.safeApiCall
+import com.logix.optiflow.data.repository.offline.OfflineDataRepositoryImpl
 import com.logix.optiflow.domain.model.searchbooking.StaffMember
 import com.logix.optiflow.domain.repository.searchbooking.StaffMemberRepository
 import java.util.UUID
@@ -15,10 +17,11 @@ import javax.inject.Singleton
 @Singleton
 class StaffMemberRepositoryImpl @Inject constructor(
     private val api: SearchBookingApi,
+    private val offline: OfflineDataRepositoryImpl,
 ) : StaffMemberRepository {
 
     override suspend fun getStaffMember(id: UUID): Result<StaffMember> =
-        safeApiCall { api.getStaffMember(id).toDomain() }
+        offline.item("staff-members/$id", StaffMemberDto::class.java) { api.getStaffMember(id) }.map { it.toDomain() }
 
     override suspend fun getStaffMembers(opticalStoreId: UUID?): Result<List<StaffMember>> =
         safeApiCall { api.getStaffMembers(opticalStoreId).map { it.toDomain() } }

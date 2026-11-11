@@ -8,6 +8,7 @@ import com.logix.optiflow.data.remote.api.searchbooking.SearchBookingApi
 import com.logix.optiflow.data.remote.dto.searchbooking.LoginRequest
 import com.logix.optiflow.data.remote.dto.searchbooking.RegisterPatientRequest
 import com.logix.optiflow.data.remote.safeApiCall
+import com.logix.optiflow.data.repository.offline.OfflineDataRepositoryImpl
 import com.logix.optiflow.domain.model.searchbooking.Patient
 import com.logix.optiflow.domain.model.searchbooking.PatientSession
 import com.logix.optiflow.domain.repository.searchbooking.PatientRepository
@@ -20,6 +21,7 @@ class PatientRepositoryImpl @Inject constructor(
     private val api: SearchBookingApi,
     private val sessionStore: PatientSessionStore,
     private val pushTokenProvider: PushTokenProvider,
+    private val offline: OfflineDataRepositoryImpl,
 ) : PatientRepository {
 
     override suspend fun register(
@@ -113,5 +115,7 @@ class PatientRepositoryImpl @Inject constructor(
         // Sin sesión el celular ya no debe recibir los push del paciente.
         runCatching { pushTokenProvider.deleteToken() }
         sessionStore.clear()
+        // Lo guardado para verse sin conexión es de este usuario.
+        offline.clear()
     }
 }

@@ -3,6 +3,7 @@ package com.logix.optiflow.data.remote
 import com.logix.optiflow.data.remote.dto.ApiErrorDto
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import java.io.IOException
 import retrofit2.HttpException
 
 /**
@@ -84,13 +85,13 @@ fun Throwable.toUserMessage(): String {
         return apiMessage?.let { knownMessages[it.trim()] } ?: messageForStatus(code())
     }
     val raw = message.orEmpty()
-    if (
-        raw.contains("10.0.2.2", ignoreCase = true) ||
-        raw.contains("failed to connect", ignoreCase = true) ||
-        raw.contains("Unable to resolve host", ignoreCase = true)
-    ) {
+    if (raw.contains("10.0.2.2", ignoreCase = true)) {
         return "No se pudo conectar al servidor. Si usas la variante local, levanta el backend en tu PC (puerto 8080). " +
             "Si no, en Android Studio elige Build Variants → prodDebug para usar Render en la nube."
+    }
+    if (this is IOException) {
+        // Sin internet la operación no llega al servidor (US20, escenario 2).
+        return "Sin conexión a internet. Esta operación requiere conexión y no se envió."
     }
     return raw.ifBlank { "Error inesperado. Intenta de nuevo." }
 }

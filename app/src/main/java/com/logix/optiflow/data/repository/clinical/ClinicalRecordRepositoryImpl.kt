@@ -3,10 +3,12 @@ package com.logix.optiflow.data.repository.clinical
 import com.logix.optiflow.data.mapper.clinical.toDomain
 import com.logix.optiflow.data.remote.api.clinical.ClinicalApi
 import com.logix.optiflow.data.remote.api.searchbooking.SearchBookingApi
+import com.logix.optiflow.data.remote.dto.clinical.ClinicalRecordDto
 import com.logix.optiflow.data.remote.dto.clinical.GenerateOpticalPrescriptionRequest
 import com.logix.optiflow.data.remote.dto.clinical.RecordMedicalHistoryRequest
 import com.logix.optiflow.data.remote.dto.clinical.RegisterClinicalRecordRequest
 import com.logix.optiflow.data.remote.safeApiCall
+import com.logix.optiflow.data.repository.offline.OfflineDataRepositoryImpl
 import com.logix.optiflow.domain.model.clinical.ClinicalRecord
 import com.logix.optiflow.domain.model.clinical.MedicalHistory
 import com.logix.optiflow.domain.model.clinical.OpticalPrescription
@@ -19,10 +21,12 @@ import javax.inject.Singleton
 class ClinicalRecordRepositoryImpl @Inject constructor(
     private val api: SearchBookingApi,
     private val clinicalApi: ClinicalApi,
+    private val offline: OfflineDataRepositoryImpl,
 ) : ClinicalRecordRepository {
 
     override suspend fun getPatientRecords(patientId: UUID): Result<List<ClinicalRecord>> =
-        safeApiCall { api.getPatientClinicalRecords(patientId).map { it.toDomain() } }
+        offline.list("clinical-records/$patientId", ClinicalRecordDto::class.java) { api.getPatientClinicalRecords(patientId) }
+            .map { dtos -> dtos.map { it.toDomain() } }
 
     override suspend fun countPatientsWithRecords(): Result<Long> =
         safeApiCall { api.getClinicalRecordsSummary().patientsWithRecords }
