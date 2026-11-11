@@ -95,6 +95,8 @@ dependencies {
     implementation(libs.androidx.browser)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
+    implementation(libs.osmdroid.android)
+    implementation(libs.play.services.location)
 
     val composeBom = platform(libs.androidx.compose.bom)
     implementation(composeBom)
