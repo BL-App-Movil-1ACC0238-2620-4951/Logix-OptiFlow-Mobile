@@ -4,8 +4,8 @@ param(
 )
 
 $urls = @{
-    local = "http://localhost:8080/optical-stores"
-    prod  = "https://logix-optiflow-back-end.onrender.com/optical-stores"
+    local = "http://localhost:8080/api/v1/optical-stores"
+    prod  = "https://logix-optiflow-back-end.onrender.com/api/v1/optical-stores"
 }
 
 $url = $urls[$Target]
