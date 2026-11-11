@@ -94,6 +94,7 @@ fun StatusCapsule(status: AppointmentStatus) {
             AppointmentStatus.CONFIRMED -> R.drawable.lucide_ic_check
             AppointmentStatus.PENDING -> R.drawable.lucide_ic_clock
             AppointmentStatus.CANCELLED -> R.drawable.lucide_ic_x
+            AppointmentStatus.COMPLETED -> R.drawable.lucide_ic_check
         }
     Pill(
         text = status.label,

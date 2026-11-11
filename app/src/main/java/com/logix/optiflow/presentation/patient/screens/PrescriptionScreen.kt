@@ -24,6 +24,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -54,16 +55,19 @@ import com.logix.optiflow.presentation.patient.PrescriptionUi
 import com.logix.optiflow.presentation.patient.components.PatientScreen
 import com.logix.optiflow.presentation.patient.components.patientViewModel
 import com.logix.optiflow.presentation.shared.components.HSpace
+import com.logix.optiflow.presentation.shared.components.IconTile
 import com.logix.optiflow.presentation.shared.components.LIcon
 import com.logix.optiflow.presentation.shared.components.PatientDarkTopBar
 import com.logix.optiflow.presentation.shared.components.SolidButton
 import com.logix.optiflow.presentation.shared.components.Txt
 import com.logix.optiflow.presentation.shared.components.VSpace
 import com.logix.optiflow.presentation.shared.components.card
+import com.logix.optiflow.presentation.shared.components.tap
 import com.logix.optiflow.presentation.theme.DeepNavy
 import com.logix.optiflow.presentation.theme.Electric
 import com.logix.optiflow.presentation.theme.InfoBanner
 import com.logix.optiflow.presentation.theme.Jakarta
+import com.logix.optiflow.presentation.theme.Lavender
 import com.logix.optiflow.presentation.theme.NavyBlue
 import com.logix.optiflow.presentation.theme.SkyTint
 import com.logix.optiflow.presentation.theme.Slate300
@@ -108,11 +112,80 @@ private fun NoPrescription(nav: NavController) {
 }
 
 @Composable
-fun PrescriptionScreen(nav: NavController, editable: Boolean) {
+fun PrescriptionListScreen(nav: NavController) {
+    val vm = patientViewModel()
+    val state by vm.uiState.collectAsState()
+    if (!state.isLoading && state.prescriptions.isEmpty()) {
+        NoPrescription(nav)
+        return
+    }
+    PatientScreen(
+        nav = nav,
+        tab = null,
+        topBar = { PatientDarkTopBar("Mis recetas", onBack = { nav.popBackStack() }) },
+    ) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp),
+        ) {
+            VSpace(24.dp)
+            if (state.isLoading) Txt("Cargando tus recetas...", 14, color = Slate500)
+            state.prescriptions.forEachIndexed { index, item ->
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .card(radius = 16.dp, border = Lavender, elevation = 2.dp)
+                        .tap { nav.navigate(Routes.prescription(item.recordId)) }
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconTile(R.drawable.lucide_ic_file_text, Lavender, Electric, size = 40.dp, iconSize = 18.dp, radius = 12.dp)
+                    HSpace(12.dp)
+                    Column(Modifier.weight(1f)) {
+                        Txt(if (index == 0) "Receta vigente" else "Receta anterior", 14, weight = FontWeight.Bold, color = DeepNavy)
+                        Txt("${item.date} · ${item.summary}", 12, color = Slate500)
+                    }
+                    LIcon(R.drawable.lucide_ic_chevron_right, Slate400, 18.dp)
+                }
+                VSpace(12.dp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun LoadingPrescription(nav: NavController, error: String?, onRetry: () -> Unit) {
+    PatientScreen(
+        nav = nav,
+        tab = null,
+        topBar = { PatientDarkTopBar("Receta óptica", onBack = { nav.popBackStack() }) },
+    ) {
+        Column(Modifier.fillMaxWidth().padding(24.dp)) {
+            Txt(error ?: "Cargando receta...", 14, color = Slate500)
+            if (error != null) {
+                VSpace(10.dp)
+                Txt("Reintentar", 14, weight = FontWeight.Bold, color = Electric, modifier = Modifier.tap(onRetry))
+            }
+        }
+    }
+}
+
+@Composable
+fun PrescriptionScreen(nav: NavController, editable: Boolean, recordId: String? = null) {
     val vm = patientViewModel()
     val state by vm.uiState.collectAsState()
     val context = LocalContext.current
-    val saved = state.prescription
+    if (recordId != null) {
+        LaunchedEffect(recordId) { vm.loadPrescription(recordId) }
+    }
+    val saved = if (recordId != null) state.selectedPrescription else state.prescription
+    if (recordId != null && saved == null) {
+        LoadingPrescription(nav, state.selectedPrescriptionError) { vm.loadPrescription(recordId) }
+        return
+    }
+    val isCurrent = recordId == null || state.prescriptions.firstOrNull()?.recordId == recordId
     if (saved == null && !editable) {
         NoPrescription(nav)
         return
@@ -130,7 +203,6 @@ fun PrescriptionScreen(nav: NavController, editable: Boolean) {
         }
     var pd by remember(editable) { mutableStateOf(if (editable) "" else rx.pupillaryDistance) }
     var notes by remember(editable) { mutableStateOf(if (editable) "" else rx.observations) }
-    val measures = remember(editable) { mutableStateListOf(*if (editable) Array(4) { "" } else arrayOf("52", "18", "140", "32")) }
 
     PatientScreen(
         nav = nav,
@@ -158,8 +230,8 @@ fun PrescriptionScreen(nav: NavController, editable: Boolean) {
                 }
                 HSpace(16.dp)
                 Column {
-                    Txt("Tu receta está vigente", 17, weight = FontWeight.Bold, color = DeepNavy)
-                    Txt("${rx.issuedLabel} · vence en 5 meses", 13, color = Slate500)
+                    Txt(if (isCurrent) "Tu receta más reciente" else "Receta anterior", 17, weight = FontWeight.Bold, color = DeepNavy)
+                    Txt(rx.issuedLabel, 13, color = Slate500)
                 }
             }
             VSpace(14.dp)
@@ -217,25 +289,6 @@ fun PrescriptionScreen(nav: NavController, editable: Boolean) {
                         }
                     }
                 }
-                VSpace(14.dp)
-                ThinDivider()
-                VSpace(10.dp)
-                SectionCaption("MEDIDAS DE LA MONTURA")
-                VSpace(12.dp)
-                Row(Modifier.fillMaxWidth()) {
-                    listOf("Calibre", "Puente", "Patillas", "Alto").forEachIndexed { index, label ->
-                        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                            MeasureGlyph(index)
-                            VSpace(6.dp)
-                            if (editable) {
-                                CellInput(measures[index], { measures[index] = it }, "0", 13, Modifier.width(44.dp), TextAlign.Center, FontWeight.Bold)
-                            } else {
-                                Txt(measures[index], 13, weight = FontWeight.Bold, color = DeepNavy)
-                            }
-                            Txt(label, 10, color = Slate400)
-                        }
-                    }
-                }
                 VSpace(12.dp)
                 ThinDivider()
                 VSpace(10.dp)
@@ -259,8 +312,8 @@ fun PrescriptionScreen(nav: NavController, editable: Boolean) {
                 VSpace(12.dp)
                 Row(verticalAlignment = Alignment.Bottom) {
                     Column(Modifier.weight(1f)) {
-                        Txt("Dra. Fernanda Soto", 12, weight = FontWeight.Bold, color = Ink)
-                        Txt("Oftalmología · Reg. 18452", 10, color = Slate400)
+                        Txt("Optometrista de OptiFlow", 12, weight = FontWeight.Bold, color = Ink)
+                        Txt("Receta emitida en la óptica", 10, color = Slate400)
                     }
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Box(Modifier.width(80.dp).height(1.dp).background(Ink))
@@ -432,19 +485,3 @@ private fun DiagnosisChip(text: String) {
 private fun ThinDivider() = Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFFEEF2F7)))
 
 /** Iconos de medidas de montura (calibre, puente, patillas, alto). */
-@Composable
-private fun MeasureGlyph(kind: Int) {
-    Canvas(Modifier.size(width = 30.dp, height = 18.dp)) {
-        val stroke = Stroke(width = 2.dp.toPx())
-        when (kind) {
-            0 -> drawRoundRect(NavyBlue, Offset(1.dp.toPx(), 2.dp.toPx()), Size(size.width - 2.dp.toPx(), size.height - 4.dp.toPx()), CornerRadius(8.dp.toPx()), style = stroke)
-            1 -> drawArc(NavyBlue, 200f, 140f, false, Offset(3.dp.toPx(), 4.dp.toPx()), Size(size.width - 6.dp.toPx(), size.height * 1.4f), style = stroke)
-            2 -> drawLine(NavyBlue, Offset(0f, size.height / 2), Offset(size.width, size.height / 2), 2.dp.toPx())
-            else -> {
-                drawLine(NavyBlue, Offset(size.width / 2 - 3.dp.toPx(), 1.dp.toPx()), Offset(size.width / 2 - 3.dp.toPx(), size.height - 1.dp.toPx()), 2.dp.toPx())
-                drawLine(NavyBlue, Offset(size.width / 2 + 3.dp.toPx(), 1.dp.toPx()), Offset(size.width / 2 + 3.dp.toPx(), size.height - 1.dp.toPx()), 2.dp.toPx())
-            }
-        }
-    }
-}
-

@@ -5,14 +5,18 @@ import androidx.lifecycle.viewModelScope
 import com.logix.optiflow.data.remote.toUserMessage
 import com.logix.optiflow.domain.model.STORE_ZONE
 import com.logix.optiflow.domain.model.notification.NotificationItem
-import com.logix.optiflow.domain.repository.notification.NotificationRepository
+import com.logix.optiflow.domain.usecase.notification.AnswerSatisfactionSurveyUseCase
 import com.logix.optiflow.domain.usecase.notification.GetNotificationsUseCase
+import com.logix.optiflow.domain.usecase.notification.MarkNotificationReadUseCase
 import com.logix.optiflow.domain.usecase.searchbooking.GetPatientSessionUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
+import java.util.UUID
 import javax.inject.Inject
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -40,15 +44,12 @@ data class NotificationsUiState(
 class NotificationsViewModel @Inject constructor(
     private val getPatientSession: GetPatientSessionUseCase,
     private val getNotifications: GetNotificationsUseCase,
-    private val notificationRepository: NotificationRepository,
+    private val markNotificationRead: MarkNotificationReadUseCase,
+    private val answerSatisfactionSurvey: AnswerSatisfactionSurveyUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(NotificationsUiState())
     val uiState: StateFlow<NotificationsUiState> = _uiState.asStateFlow()
-
-    init {
-        refresh()
-    }
 
     fun refresh() {
         viewModelScope.launch {
@@ -58,7 +59,6 @@ class NotificationsViewModel @Inject constructor(
                 _uiState.update { it.copy(isLoading = false, errorMessage = "Inicia sesión para ver tus notificaciones.") }
                 return@launch
             }
-            val readIds = notificationRepository.getReadIds()
             getNotifications(session.patientId)
                 .onSuccess { items ->
                     val rows =
@@ -66,7 +66,7 @@ class NotificationsViewModel @Inject constructor(
                             NotificationRowUi(
                                 item = item,
                                 timeLabel = formatRelativeTime(item.occurredAt),
-                                isRead = item.id in readIds,
+                                isRead = item.read,
                             )
                         }
                     _uiState.update {
@@ -83,18 +83,29 @@ class NotificationsViewModel @Inject constructor(
         }
     }
 
+    /** El backend marca de una en una (`PATCH /notifications/{id}`), así que se envían todas las no leídas. */
     fun markAllRead() {
         viewModelScope.launch {
-            val ids = _uiState.value.sections.flatMap { section -> section.items.map { row -> row.item.id } }
-            notificationRepository.markAllRead(ids)
+            val unread = _uiState.value.sections.flatMap { it.items }.filter { !it.isRead }.map { it.item.id }
+            if (unread.isEmpty()) return@launch
+            unread.map { id -> async { markNotificationRead(id) } }.awaitAll()
             refresh()
         }
     }
 
-    fun onNotificationClick(id: String) {
+    fun onNotificationClick(row: NotificationRowUi) {
+        if (row.isRead) return
         viewModelScope.launch {
-            notificationRepository.markRead(id)
-            refresh()
+            markNotificationRead(row.item.id).onSuccess { refresh() }
+        }
+    }
+
+    /** Responde la encuesta de satisfacción; [onDone] recibe el error o `null`. */
+    fun answerSurvey(id: UUID, rating: Int, comment: String, onDone: (String?) -> Unit) {
+        viewModelScope.launch {
+            val result = answerSatisfactionSurvey(id, rating, comment)
+            onDone(result.exceptionOrNull()?.toUserMessage())
+            if (result.isSuccess) refresh()
         }
     }
 

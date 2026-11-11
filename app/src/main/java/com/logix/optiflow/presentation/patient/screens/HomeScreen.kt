@@ -1,5 +1,10 @@
 package com.logix.optiflow.presentation.patient.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -7,6 +12,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -26,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -34,17 +41,23 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.logix.optiflow.R
-import com.logix.optiflow.data.demo.DemoData
-import com.logix.optiflow.data.demo.Frame
+import com.logix.optiflow.domain.model.inventory.FrameModel
 import com.logix.optiflow.presentation.navigation.Routes
 import com.logix.optiflow.presentation.patient.AppointmentUi
+import com.logix.optiflow.presentation.patient.CatalogViewModel
 import com.logix.optiflow.presentation.patient.components.DateBadge
 import com.logix.optiflow.presentation.patient.components.PatientScreen
 import com.logix.optiflow.presentation.patient.components.SectionHeader
 import com.logix.optiflow.presentation.patient.components.StatusCapsule
+import com.logix.optiflow.presentation.patient.components.image
 import com.logix.optiflow.presentation.patient.components.patientViewModel
+import com.logix.optiflow.presentation.patient.components.priceLabel
+import com.logix.optiflow.presentation.patient.components.shapeLabel
 import com.logix.optiflow.presentation.shared.components.BellButton
 import com.logix.optiflow.presentation.shared.components.HSpace
 import com.logix.optiflow.presentation.shared.components.IconTile
@@ -78,10 +91,22 @@ import com.logix.optiflow.presentation.theme.WellnessIcon
 import com.logix.optiflow.presentation.theme.White
 
 @Composable
-fun PatientHomeScreen(nav: NavController) {
+fun PatientHomeScreen(nav: NavController, catalogVm: CatalogViewModel = hiltViewModel()) {
     val vm = patientViewModel()
     val state by vm.uiState.collectAsState()
+    val catalog by catalogVm.uiState.collectAsStateWithLifecycle()
+    val featured = catalog.frames.take(2)
     LaunchedEffect(Unit) { vm.refresh() }
+    val context = LocalContext.current
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    LaunchedEffect(Unit) {
+        // Desde Android 13 hay que pedir permiso para mostrar los push.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
 
     PatientScreen(
         nav = nav,
@@ -117,7 +142,9 @@ fun PatientHomeScreen(nav: NavController) {
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
-            TryOnBanner(onClick = { nav.navigate(Routes.tryOn("verona")) })
+            TryOnBanner(onClick = {
+                featured.firstOrNull()?.let { nav.navigate(Routes.tryOn(it.sku)) } ?: nav.navigate(Routes.P_CATALOG)
+            })
 
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SectionHeader("Próxima cita", "Ver todas", onAction = { nav.navigate(Routes.P_APPOINTMENTS) })
@@ -191,12 +218,10 @@ fun PatientHomeScreen(nav: NavController) {
                     )
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    listOf("verona", "havana").forEach { id ->
-                        FeaturedFrame(
-                            DemoData.frame(id),
-                            Modifier.weight(1f),
-                        ) { nav.navigate(Routes.frame(id)) }
+                    featured.forEach { frame ->
+                        FeaturedFrame(frame, Modifier.weight(1f)) { nav.navigate(Routes.frame(frame.sku)) }
                     }
+                    repeat(2 - featured.size) { Spacer(Modifier.weight(1f)) }
                 }
             }
 
@@ -335,7 +360,7 @@ private fun QuickAccess(
 }
 
 @Composable
-private fun FeaturedFrame(frame: Frame, modifier: Modifier, onClick: () -> Unit) {
+private fun FeaturedFrame(frame: FrameModel, modifier: Modifier, onClick: () -> Unit) {
     Column(
         modifier
             .height(228.dp)
@@ -351,9 +376,9 @@ private fun FeaturedFrame(frame: Frame, modifier: Modifier, onClick: () -> Unit)
             modifier = Modifier.fillMaxWidth().height(130.dp).clip(RoundedCornerShape(12.dp)),
         )
         Column(Modifier.padding(horizontal = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Txt(frame.category, 12, color = WarmGray, family = Geist)
+            Txt(frame.shapeLabel, 12, color = WarmGray, family = Geist)
             Txt(frame.name, 15, weight = FontWeight.Medium, color = DeepNavy, family = Poppins, maxLines = 1)
-            Txt("$${frame.price}.00", 14, color = Teal700, family = OpenSansCondensed)
+            Txt(frame.priceLabel, 14, color = Teal700, family = OpenSansCondensed)
         }
     }
 }

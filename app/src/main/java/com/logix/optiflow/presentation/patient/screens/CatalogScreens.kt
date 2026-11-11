@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -47,13 +48,18 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.logix.optiflow.R
-import com.logix.optiflow.data.demo.DemoData
-import com.logix.optiflow.data.demo.Frame
+import com.logix.optiflow.domain.model.inventory.FrameModel
 import com.logix.optiflow.presentation.navigation.Routes
 import com.logix.optiflow.presentation.navigation.goPatientTab
+import com.logix.optiflow.presentation.patient.CatalogViewModel
 import com.logix.optiflow.presentation.patient.components.PatientScreen
+import com.logix.optiflow.presentation.patient.components.image
+import com.logix.optiflow.presentation.patient.components.priceLabel
+import com.logix.optiflow.presentation.patient.components.shapeLabel
 import com.logix.optiflow.presentation.search.screens.SearchField
 import com.logix.optiflow.presentation.shared.components.BellButton
 import com.logix.optiflow.presentation.shared.components.Divider
@@ -86,25 +92,25 @@ import com.logix.optiflow.presentation.theme.Slate500
 import com.logix.optiflow.presentation.theme.Teal700
 import com.logix.optiflow.presentation.theme.White
 
-private val catalogFilters = listOf("Todos", "Solar", "Oftálmico", "Contacto")
 private val FrameBorder = Color(0xFF9AA8C7)
 private val Ink = Color(0xFF111827)
 
 @Composable
-fun CatalogScreen(nav: NavController) {
+fun CatalogScreen(nav: NavController, vm: CatalogViewModel = hiltViewModel()) {
+    val state by vm.uiState.collectAsStateWithLifecycle()
     var filter by rememberSaveable { mutableIntStateOf(0) }
     var query by rememberSaveable { mutableStateOf("") }
+    val catalogFilters = listOf("Todos", "Favoritos") + state.shapes
     val frames =
-        DemoData.catalogGrid
-            .map(DemoData::frame)
+        state.frames
             .filter {
                 when (filter) {
-                    1 -> it.category == "SOLAR"
-                    2 -> it.category == "OFTÁLMICO"
-                    3 -> false
-                    else -> true
+                    0 -> true
+                    1 -> it.sku in state.favorites
+                    else -> it.shape == catalogFilters.getOrNull(filter)
                 }
-            }.filter { query.isBlank() || it.name.contains(query.trim(), ignoreCase = true) }
+            }
+            .filter { query.isBlank() || it.name.contains(query.trim(), ignoreCase = true) }
 
     PatientScreen(
         nav = nav,
@@ -168,7 +174,12 @@ fun CatalogScreen(nav: NavController) {
             VSpace(20.dp)
             if (frames.isEmpty()) {
                 Txt(
-                    "No hay monturas en esta categoría por ahora.",
+                    when {
+                        state.isLoading -> "Cargando monturas..."
+                        state.errorMessage != null -> state.errorMessage.orEmpty()
+                        filter == 1 -> "Aún no tienes monturas favoritas. Toca el corazón en una montura para guardarla."
+                        else -> "No hay monturas en esta categoría por ahora."
+                    },
                     13,
                     color = Slate500,
                     modifier = Modifier.padding(vertical = 24.dp),
@@ -177,7 +188,7 @@ fun CatalogScreen(nav: NavController) {
             frames.chunked(3).forEach { row ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     row.forEach { frame ->
-                        CatalogCard(frame, Modifier.weight(1f)) { nav.navigate(Routes.frame(frame.id)) }
+                        CatalogCard(frame, Modifier.weight(1f)) { nav.navigate(Routes.frame(frame.sku)) }
                     }
                     repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
                 }
@@ -189,7 +200,7 @@ fun CatalogScreen(nav: NavController) {
 }
 
 @Composable
-private fun CatalogCard(frame: Frame, modifier: Modifier, onClick: () -> Unit) {
+private fun CatalogCard(frame: FrameModel, modifier: Modifier, onClick: () -> Unit) {
     Column(
         modifier
             .card(radius = 16.dp, border = FrameBorder)
@@ -203,19 +214,27 @@ private fun CatalogCard(frame: Frame, modifier: Modifier, onClick: () -> Unit) {
             modifier = Modifier.fillMaxWidth().height(116.dp).clip(RoundedCornerShape(8.dp)),
         )
         VSpace(14.dp)
-        Txt(frame.category, 11, color = Electric)
+        Txt(frame.shapeLabel, 11, color = Electric)
         VSpace(4.dp)
         Txt(frame.name, 14, weight = FontWeight.Bold, color = Ink, maxLines = 1)
         VSpace(4.dp)
-        Txt("$${frame.price}", 14, weight = FontWeight.Bold, color = Teal700)
+        Txt(frame.priceLabel, 14, weight = FontWeight.Bold, color = Teal700)
         VSpace(10.dp)
     }
 }
 
 @Composable
-fun FrameDetailScreen(nav: NavController, frameId: String) {
-    val frame = DemoData.frame(frameId)
-    var favorite by rememberSaveable { mutableStateOf(false) }
+fun FrameDetailScreen(nav: NavController, sku: String, vm: CatalogViewModel = hiltViewModel()) {
+    val state by vm.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(sku) { vm.loadStock(sku) }
+    val frame = state.frame(sku)
+    if (frame == null) {
+        if (!state.isLoading) LaunchedEffect(Unit) { nav.popBackStack() }
+        return
+    }
+    val stock = state.stock
+    val units = stock?.sumOf { it.quantity } ?: 0
+    val favorite = sku in state.favorites
 
     PatientScreen(
         nav = nav,
@@ -223,7 +242,7 @@ fun FrameDetailScreen(nav: NavController, frameId: String) {
         topBar = {
             PatientLightTopBar("Detalles de montura", onBack = { nav.popBackStack() }) {
                 Box(
-                    Modifier.size(44.dp).clip(CircleShape).background(BellChip).tap { favorite = !favorite },
+                    Modifier.size(44.dp).clip(CircleShape).background(BellChip).tap { vm.toggleFavorite(sku) },
                     contentAlignment = Alignment.Center,
                 ) {
                     if (favorite) {
@@ -255,22 +274,17 @@ fun FrameDetailScreen(nav: NavController, frameId: String) {
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
                 )
-                Pill(
-                    text = "DISPONIBLE HOY",
-                    background = Mint100,
-                    color = Emerald700,
-                    icon = R.drawable.lucide_ic_circle_check,
-                    modifier = Modifier.padding(14.dp),
-                    padding = PaddingValues(horizontal = 10.dp, vertical = 5.dp),
-                    iconSize = 14.dp,
-                )
-                Pill(
-                    text = "1 de 3",
-                    background = PatientHeader.copy(alpha = 0.85f),
-                    color = White,
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp),
-                    padding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                )
+                if (units > 0) {
+                    Pill(
+                        text = "DISPONIBLE HOY",
+                        background = Mint100,
+                        color = Emerald700,
+                        icon = R.drawable.lucide_ic_circle_check,
+                        modifier = Modifier.padding(14.dp),
+                        padding = PaddingValues(horizontal = 10.dp, vertical = 5.dp),
+                        iconSize = 14.dp,
+                    )
+                }
             }
             VSpace(12.dp)
             Column(
@@ -279,19 +293,28 @@ fun FrameDetailScreen(nav: NavController, frameId: String) {
                     .card(radius = 16.dp, border = FrameBorder)
                     .padding(horizontal = 17.dp, vertical = 16.dp),
             ) {
-                Txt("${frame.category} · UNISEX", 11, weight = FontWeight.Bold, color = Electric)
+                Txt("${frame.shapeLabel} · UNISEX", 11, weight = FontWeight.Bold, color = Electric)
                 VSpace(6.dp)
                 Txt(frame.name, 24, weight = FontWeight.ExtraBold, color = Ink)
                 VSpace(10.dp)
-                Txt(frame.description, 13, color = Slate500)
+                Txt(listOfNotNull(frame.material, frame.color).joinToString(" · "), 13, color = Slate500)
                 VSpace(18.dp)
-                Txt(frame.fromPrice, 22, weight = FontWeight.ExtraBold, color = Electric)
+                Txt(frame.priceLabel, 22, weight = FontWeight.ExtraBold, color = Electric)
                 VSpace(14.dp)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconTile(R.drawable.lucide_ic_package_check, Mint100, Emerald700, size = 30.dp, iconSize = 16.dp, radius = 15.dp)
                     HSpace(8.dp)
                     Column {
-                        Txt("En stock · ${frame.stock} unidades", 13, weight = FontWeight.Bold, color = Emerald700)
+                        Txt(
+                            when {
+                                stock == null -> "Consultando stock..."
+                                units > 0 -> "En stock · $units unidades"
+                                else -> "Sin stock por ahora"
+                            },
+                            13,
+                            weight = FontWeight.Bold,
+                            color = Emerald700,
+                        )
                         Txt("Disponible para prueba y reserva inmediata", 11, color = Slate500)
                     }
                 }
@@ -301,7 +324,7 @@ fun FrameDetailScreen(nav: NavController, frameId: String) {
                 Txt("Características principales", 13, weight = FontWeight.Bold, color = Ink)
                 VSpace(10.dp)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    frame.features.forEachIndexed { index, feature ->
+                    listOfNotNull(frame.material, frame.shape).forEachIndexed { index, feature ->
                         Pill(
                             text = feature,
                             background = SkyTint,
@@ -327,8 +350,22 @@ fun FrameDetailScreen(nav: NavController, frameId: String) {
                 IconTile(R.drawable.lucide_ic_map_pin, White, NavyBlue, size = 40.dp, iconSize = 20.dp, radius = 12.dp)
                 HSpace(14.dp)
                 Column {
-                    Txt("Disponible en 3 ópticas cercanas", 13, weight = FontWeight.Bold, color = DeepNavy)
-                    Txt("La más cercana está a 0,8 km de ti.", 11, color = Slate500)
+                    val stores = stock.orEmpty()
+                    Txt(
+                        when (stores.size) {
+                            0 -> "Consulta la disponibilidad en tu óptica"
+                            1 -> "Disponible en 1 óptica"
+                            else -> "Disponible en ${stores.size} ópticas"
+                        },
+                        13,
+                        weight = FontWeight.Bold,
+                        color = DeepNavy,
+                    )
+                    Txt(
+                        stores.firstOrNull()?.let { "Por ejemplo, en ${it.store.name}." } ?: "Toca para ver las ópticas.",
+                        11,
+                        color = Slate500,
+                    )
                 }
             }
             VSpace(52.dp)
@@ -345,11 +382,16 @@ fun FrameDetailScreen(nav: NavController, frameId: String) {
 }
 
 @Composable
-fun TryOnScreen(nav: NavController, frameId: String) {
+fun TryOnScreen(nav: NavController, sku: String, vm: CatalogViewModel = hiltViewModel()) {
     com.logix.optiflow.presentation.shared.components.StatusBarIcons(lightIcons = true)
-    val frame = DemoData.frame(frameId)
+    val state by vm.uiState.collectAsStateWithLifecycle()
+    val frame = state.frame(sku)
+    if (frame == null) {
+        if (!state.isLoading) LaunchedEffect(Unit) { nav.popBackStack() }
+        return
+    }
     var color by remember { mutableIntStateOf(0) }
-    val colors = listOf("Azul marino" to Color(0xFF1E3D79), "Cristal" to Color(0xFFF1F5F9), "Carey" to Electric)
+    val colors = listOf(frame.color.orEmpty().ifBlank { "Original" } to Electric)
 
     Column(Modifier.fillMaxSize().background(Color(0xFF14295A))) {
         Box(
@@ -368,7 +410,7 @@ fun TryOnScreen(nav: NavController, frameId: String) {
                 CameraButton(R.drawable.lucide_ic_chevron_left) { nav.popBackStack() }
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                     Txt("Prueba virtual", 16, weight = FontWeight.Bold, color = White)
-                    Txt("Nova N-24 · Cámara AR", 11, color = White.copy(alpha = 0.7f))
+                    Txt("${frame.name} · Cámara AR", 11, color = White.copy(alpha = 0.7f))
                 }
                 CameraButton(R.drawable.lucide_ic_circle_question_mark) {}
             }
@@ -426,14 +468,14 @@ fun TryOnScreen(nav: NavController, frameId: String) {
                     HSpace(14.dp)
                     Column(Modifier.weight(1f)) {
                         Txt("PROBANDO AHORA", 11, weight = FontWeight.Bold, color = Electric)
-                        Txt("Nova N-24", 18, weight = FontWeight.ExtraBold, color = DeepNavy)
-                        Txt("${colors[color].first} · Talla ${frame.size}", 12, color = Slate500)
+                        Txt(frame.name, 18, weight = FontWeight.ExtraBold, color = DeepNavy, maxLines = 1)
+                        Txt("${colors[color].first} · ${frame.priceLabel}", 12, color = Slate500)
                     }
                     Box(
                         Modifier
                             .clip(RoundedCornerShape(10.dp))
                             .background(SkyTint)
-                            .tap { nav.navigate(Routes.frame(frame.id)) }
+                            .tap { nav.navigate(Routes.frame(frame.sku)) }
                             .padding(horizontal = 14.dp, vertical = 7.dp),
                     ) {
                         Txt("Ver stock", 12, weight = FontWeight.Bold, color = Electric)
