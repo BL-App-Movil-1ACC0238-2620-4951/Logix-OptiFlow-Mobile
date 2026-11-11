@@ -146,25 +146,6 @@ fun IconTile(
 }
 
 @Composable
-fun Initials(
-    text: String,
-    background: Color,
-    color: Color,
-    size: Dp,
-    fontSize: Int,
-    family: FontFamily,
-    radius: Dp = 14.dp,
-    weight: FontWeight = FontWeight.Normal,
-) {
-    Box(
-        modifier = Modifier.size(size).clip(RoundedCornerShape(radius)).background(background),
-        contentAlignment = Alignment.Center,
-    ) {
-        Txt(text, fontSize, weight = weight, color = color, family = family)
-    }
-}
-
-@Composable
 fun Pill(
     text: String,
     background: Color,
