@@ -31,12 +31,12 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.navigation.NavController
 import com.logix.optiflow.R
 import com.logix.optiflow.data.demo.AgendaItem
 import com.logix.optiflow.data.demo.AgendaStatus
-import com.logix.optiflow.data.demo.DemoData
-import com.logix.optiflow.data.demo.Product
 import com.logix.optiflow.data.demo.ProductionStage
 import com.logix.optiflow.domain.model.STORE_ZONE
 import com.logix.optiflow.presentation.navigation.Routes
@@ -52,8 +52,13 @@ import com.logix.optiflow.presentation.shared.components.StaffTopBar
 import com.logix.optiflow.presentation.shared.components.Txt
 import com.logix.optiflow.presentation.shared.components.VSpace
 import com.logix.optiflow.presentation.shared.components.tap
+import com.logix.optiflow.presentation.patient.components.image
+import com.logix.optiflow.presentation.staff.InventoryRow
+import com.logix.optiflow.presentation.staff.InventoryViewModel
 import com.logix.optiflow.presentation.staff.StaffFeature
+import com.logix.optiflow.presentation.staff.productionAlertCount
 import com.logix.optiflow.presentation.staff.can
+import com.logix.optiflow.presentation.staff.soles
 import com.logix.optiflow.presentation.staff.components.StaffButton
 import com.logix.optiflow.presentation.staff.components.StaffChip
 import com.logix.optiflow.presentation.staff.components.StaffFab
@@ -67,6 +72,7 @@ import com.logix.optiflow.presentation.staff.components.StaffSectionTitle
 import com.logix.optiflow.presentation.staff.components.staffCard
 import com.logix.optiflow.presentation.staff.components.staffViewModel
 import com.logix.optiflow.presentation.theme.Electric
+import com.logix.optiflow.presentation.theme.ErrorRed
 import com.logix.optiflow.presentation.theme.Inter
 import com.logix.optiflow.presentation.theme.Lavender
 import com.logix.optiflow.presentation.theme.Slate300
@@ -172,7 +178,7 @@ fun StaffDashboardScreen(nav: NavController) {
                 Triple(R.drawable.lucide_ic_scan, "Escanear", Routes.S_SCANNER)
                     .takeIf { role.can(StaffFeature.STOCK) || role.can(StaffFeature.INVENTORY) },
                 Triple(R.drawable.lucide_ic_file_text, "Cotización", Routes.S_QUOTE).takeIf { role.can(StaffFeature.QUOTES) },
-                Triple(R.drawable.lucide_ic_credit_card, "Nueva venta", Routes.S_SALE).takeIf { role.can(StaffFeature.SALES) },
+                Triple(R.drawable.lucide_ic_credit_card, "Nueva venta", Routes.S_QUOTE).takeIf { role.can(StaffFeature.SALES) },
                 Triple(R.drawable.lucide_ic_briefcase, "Órdenes", Routes.S_PRODUCTION)
                     .takeIf { role.can(StaffFeature.PRODUCTION) && !role.can(StaffFeature.SALES) },
             )
@@ -194,6 +200,15 @@ fun StaffDashboardScreen(nav: NavController) {
             }
         }
         if (role.can(StaffFeature.ALERTS)) {
+            val inventory: InventoryViewModel = hiltViewModel()
+            val inventoryState by inventory.uiState.collectAsState()
+            LifecycleResumeEffect(state.storeId) {
+                inventory.loadAlerts(state.storeId)
+                onPauseOrDispose {}
+            }
+            val stockAlerts = inventoryState.alerts.size
+            val productionAlerts = productionAlertCount(state.productionOrders)
+            val total = stockAlerts + productionAlerts
             VSpace(18.dp)
             Row(
                 Modifier
@@ -207,8 +222,17 @@ fun StaffDashboardScreen(nav: NavController) {
                 StaffIconTile(R.drawable.lucide_ic_bell, size = 37.dp, background = Lavender, tint = StaffInk, radius = 12.dp)
                 HSpace(11.dp)
                 Column(Modifier.weight(1f)) {
-                    Txt("3 alertas requieren atención", 12, color = StaffInk, family = Inter)
-                    Txt("Stock bajo y órdenes con retraso.", 11, color = StaffMuted, family = Inter)
+                    Txt(
+                        when (total) {
+                            0 -> "Sin alertas por ahora"
+                            1 -> "1 alerta requiere atención"
+                            else -> "$total alertas requieren atención"
+                        },
+                        12,
+                        color = StaffInk,
+                        family = Inter,
+                    )
+                    Txt("$stockAlerts de stock · $productionAlerts de producción", 11, color = StaffMuted, family = Inter)
                 }
                 LIcon(R.drawable.lucide_ic_chevron_right, StaffInk, 22.dp)
             }
@@ -244,6 +268,11 @@ private val agendaFilters =
 fun StaffAgendaScreen(nav: NavController) {
     var filter by rememberSaveable { mutableIntStateOf(0) }
     val vm = staffViewModel()
+    // Se recarga al entrar a la pestaña y al volver (por ejemplo, tras agendar una cita).
+    LifecycleResumeEffect(Unit) {
+        vm.refreshAgenda()
+        onPauseOrDispose {}
+    }
     val state by vm.uiState.collectAsState()
     val agenda = state.agenda
     val waiting = agenda.filter { it.status == AgendaStatus.WAITING }
@@ -262,7 +291,7 @@ fun StaffAgendaScreen(nav: NavController) {
         overlay = {
             StaffFab(
                 "Nueva cita",
-                onClick = { nav.navigate(Routes.S_NEW_APPOINTMENT) },
+                onClick = { nav.navigate(Routes.newAppointment()) },
                 modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 22.dp),
             )
         },
@@ -327,17 +356,18 @@ fun StaffAgendaScreen(nav: NavController) {
                         StaffInitials(initialsOf(item.name))
                         HSpace(12.dp)
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            StaffPill("En sala · hace 10 min", icon = R.drawable.lucide_ic_clock)
+                            StaffPill("En sala", icon = R.drawable.lucide_ic_clock)
                             Txt(item.name, 14, color = StaffInk, family = Inter)
                             Txt("${item.time} · ${item.service}", 11, color = Slate400, family = Inter)
                         }
                         LIcon(R.drawable.lucide_ic_chevron_right, StaffInk, 20.dp)
                     }
-                    if (state.role.can(StaffFeature.CLINICAL)) {
+                    val appointmentId = item.appointmentId
+                    if (state.role.can(StaffFeature.CLINICAL) && appointmentId != null) {
                         VSpace(14.dp)
                         StaffButton(
                             "Iniciar atención clínica",
-                            onClick = { nav.navigate(Routes.S_CLINICAL) },
+                            onClick = { nav.navigate(Routes.clinicalCare(appointmentId, item.patientId)) },
                             icon = R.drawable.lucide_ic_eye,
                             height = 48.dp,
                         )
@@ -482,14 +512,18 @@ private fun StatColumn(value: String, label: String, color: Color, modifier: Mod
     }
 }
 
-private val inventoryCategories = listOf("Armazones", "Gafas de sol", "Lentes de contacto", "Cristales")
-
 @Composable
 fun StaffInventoryScreen(nav: NavController) {
-    val vm = staffViewModel()
+    val staff by staffViewModel().uiState.collectAsState()
+    val vm: InventoryViewModel = hiltViewModel()
     val state by vm.uiState.collectAsState()
-    var category by rememberSaveable { mutableIntStateOf(0) }
-    val products = if (category == 0) DemoData.products else emptyList()
+    val role = staff.role
+    // Se recarga al volver de una reposición o de una montura nueva.
+    LifecycleResumeEffect(staff.storeId) {
+        vm.load(staff.storeId)
+        onPauseOrDispose {}
+    }
+    val rows = state.filtered
 
     StaffScreen(
         nav = nav,
@@ -500,84 +534,69 @@ fun StaffInventoryScreen(nav: NavController) {
         StaffHero(radius = 20.dp, padding = androidx.compose.foundation.layout.PaddingValues(18.dp, 20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Txt("CONTROL DE STOCK · ACTUALIZADO HOY", 8, color = Slate300, family = Inter, letterSpacing = 1.sp)
+                    Txt("CONTROL DE STOCK · ${staff.storeName.uppercase()}", 8, color = Slate300, family = Inter, letterSpacing = 1.sp, maxLines = 1)
                     VSpace(8.dp)
-                    Txt("Catálogo y taller óptico", 18, color = White, family = Inter)
+                    Txt("Catálogo y stock", 18, color = White, family = Inter)
                     VSpace(6.dp)
-                    Txt("Referencias, lentes en laboratorio y pedidos.", 10, color = Slate300, family = Inter)
+                    Txt("${state.rows.size} modelos en el catálogo de la cadena.", 10, color = Slate300, family = Inter)
                 }
                 LIcon(R.drawable.lucide_ic_layout_grid, Color(0xFFB7C4FF), 44.dp)
             }
         }
         VSpace(12.dp)
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            StatCard(R.drawable.lucide_ic_eye, "${300 + state.stock.values.sum() + 29}", "En stock", "8 por reponer", Modifier.weight(1f)) {}
-            StatCard(R.drawable.lucide_ic_briefcase, "12", "En taller / lab", "3 con entrega hoy", Modifier.weight(1f)) {
-                nav.navigate(Routes.S_PRODUCTION)
+            StatCard(R.drawable.lucide_ic_eye, "${state.totalUnits}", "En stock", "${state.lowCount} por reponer", Modifier.weight(1f)) {
+                if (role.can(StaffFeature.ALERTS)) nav.navigate(Routes.S_ALERTS)
+            }
+            if (role.can(StaffFeature.PRODUCTION)) {
+                val open = staff.productionOrders.filter { it.stage != ProductionStage.DELIVERED }
+                StatCard(R.drawable.lucide_ic_briefcase, "${open.size}", "En taller / lab", "${open.count { it.needsAttention }} con retraso", Modifier.weight(1f)) {
+                    nav.navigate(Routes.S_PRODUCTION)
+                }
+            } else {
+                StatCard(R.drawable.lucide_ic_briefcase, "${state.rows.count { (it.stock?.quantity ?: 0) == 0 }}", "Sin stock", "modelos agotados aquí", Modifier.weight(1f)) {}
             }
         }
         VSpace(12.dp)
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Row(
-                Modifier
-                    .weight(1f)
-                    .height(48.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(StaffAccent)
-                    .padding(horizontal = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                LIcon(R.drawable.lucide_ic_list_filter, White, 18.dp)
-                HSpace(12.dp)
-                Txt("Buscar modelo, SKU o marca", 15, color = White.copy(alpha = 0.9f), family = Inter, modifier = Modifier.weight(1f), maxLines = 1)
-                LIcon(R.drawable.lucide_ic_search, White, 18.dp)
-            }
-            HSpace(8.dp)
-            Box(
-                Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(StaffAccent).tap { nav.navigate(Routes.S_SCANNER) },
-                contentAlignment = Alignment.Center,
-            ) {
-                LIcon(R.drawable.lucide_ic_scan, White, 20.dp)
-            }
-        }
-        VSpace(12.dp)
-        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            inventoryCategories.forEachIndexed { index, label -> StaffChip(label, category == index) { category = index } }
-        }
+        SearchField(state.query, vm::setQuery, "Buscar modelo, SKU o color")
         VSpace(26.dp)
-        StaffSectionTitle("Catálogo en vitrina · ${products.size} modelos", "Filtrar")
+        StaffSectionTitle("Catálogo · ${rows.size} ${if (rows.size == 1) "modelo" else "modelos"}")
         VSpace(12.dp)
-        if (products.isEmpty()) {
-            Txt("Sin modelos en esta categoría.", 12, color = Slate400, family = Inter)
+        when {
+            state.isLoading -> Txt("Cargando…", 12, color = Slate400, family = Inter)
+            state.errorMessage != null -> Txt(state.errorMessage.orEmpty(), 12, color = Slate400, family = Inter)
+            rows.isEmpty() -> Txt("No hay monturas que coincidan.", 12, color = Slate400, family = Inter)
         }
-        products.chunked(2).forEach { row ->
+        rows.chunked(2).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                row.forEach { product ->
-                    ProductCard(product, state.stock[product.id] ?: product.available, Modifier.weight(1f)) {
-                        nav.navigate(Routes.product(product.id))
-                    }
+                row.forEach { item ->
+                    ProductCard(item, Modifier.weight(1f)) { nav.navigate(Routes.product(item.frame.sku)) }
                 }
                 if (row.size == 1) Spacer(Modifier.weight(1f))
             }
             VSpace(14.dp)
         }
-        VSpace(14.dp)
-        StaffSectionTitle("Acciones rápidas")
-        VSpace(12.dp)
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        val actions =
             listOfNotNull(
-                Triple(R.drawable.lucide_ic_plus, "Ingresar stock", Routes.S_MOVEMENT).takeIf { state.role.can(StaffFeature.INVENTORY) },
-                Triple(R.drawable.lucide_ic_chevron_right, "Traslado", Routes.stock("rb5154")).takeIf { state.role.can(StaffFeature.INVENTORY) },
-                Triple(R.drawable.lucide_ic_check, "Auditoría", Routes.stock("rb5154")).takeIf { state.role.can(StaffFeature.INVENTORY) },
-                Triple(R.drawable.lucide_ic_file_text, "Órdenes", Routes.S_PRODUCTION).takeIf { state.role.can(StaffFeature.PRODUCTION) },
-            ).forEach { (icon, label, route) ->
-                Column(
-                    Modifier.weight(1f).height(82.dp).staffCard(radius = 16.dp).tap { nav.navigate(route) },
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(7.dp, Alignment.CenterVertically),
-                ) {
-                    LIcon(icon, StaffInk, 22.dp)
-                    Txt(label, 10, color = StaffInk, family = Inter, maxLines = 1)
+                Triple(R.drawable.lucide_ic_plus, "Nueva montura", Routes.S_NEW_FRAME).takeIf { role.can(StaffFeature.CATALOG) },
+                Triple(R.drawable.lucide_ic_box, "Ingresar stock", Routes.movement()).takeIf { role.can(StaffFeature.INVENTORY) },
+                Triple(R.drawable.lucide_ic_bell, "Alertas", Routes.S_ALERTS).takeIf { role.can(StaffFeature.ALERTS) },
+                Triple(R.drawable.lucide_ic_file_text, "Órdenes", Routes.S_PRODUCTION).takeIf { role.can(StaffFeature.PRODUCTION) },
+            )
+        if (actions.isNotEmpty()) {
+            VSpace(14.dp)
+            StaffSectionTitle("Acciones rápidas")
+            VSpace(12.dp)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                actions.forEach { (icon, label, route) ->
+                    Column(
+                        Modifier.weight(1f).height(82.dp).staffCard(radius = 16.dp).tap { nav.navigate(route) },
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(7.dp, Alignment.CenterVertically),
+                    ) {
+                        LIcon(icon, StaffInk, 22.dp)
+                        Txt(label, 10, color = StaffInk, family = Inter, maxLines = 1)
+                    }
                 }
             }
         }
@@ -585,25 +604,37 @@ fun StaffInventoryScreen(nav: NavController) {
     }
 }
 
+/** Etiqueta del stock de una montura en la óptica. */
+fun stockTag(row: InventoryRow): String {
+    val quantity = row.stock?.quantity ?: 0
+    return when {
+        quantity == 0 -> "Sin stock"
+        row.stock?.low == true -> "Stock bajo"
+        else -> "Disponible"
+    }
+}
+
 @Composable
-private fun ProductCard(product: Product, available: Int, modifier: Modifier, onClick: () -> Unit) {
+private fun ProductCard(row: InventoryRow, modifier: Modifier, onClick: () -> Unit) {
+    val frame = row.frame
+    val quantity = row.stock?.quantity ?: 0
     Column(modifier.staffCard().tap(onClick).padding(12.dp)) {
         Image(
-            painter = painterResource(product.image),
-            contentDescription = product.name,
+            painter = painterResource(frame.image),
+            contentDescription = frame.name,
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxWidth().height(92.dp).clip(RoundedCornerShape(12.dp)),
         )
         VSpace(10.dp)
-        StaffPill(product.tag, icon = product.tagIcon)
+        StaffPill(stockTag(row), icon = if (row.stock?.low == true || quantity == 0) R.drawable.lucide_ic_bell else R.drawable.lucide_ic_check)
         VSpace(8.dp)
-        Txt(product.name, 13, color = StaffInk, family = Inter, maxLines = 1)
+        Txt(frame.name, 13, color = StaffInk, family = Inter, maxLines = 1)
         VSpace(4.dp)
-        Txt(product.detail, 9, color = Slate400, family = Inter, maxLines = 1)
+        Txt(listOfNotNull(frame.color, frame.material).joinToString(" · ").ifBlank { frame.sku }, 9, color = Slate400, family = Inter, maxLines = 1)
         VSpace(14.dp)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Txt(product.price, 13, weight = FontWeight.SemiBold, color = StaffInk, family = Inter, modifier = Modifier.weight(1f))
-            Txt("$available disp.", 9, color = StaffGreen, family = Inter)
+            Txt(soles(frame.price), 13, weight = FontWeight.SemiBold, color = StaffInk, family = Inter, modifier = Modifier.weight(1f))
+            Txt("$quantity disp.", 9, color = if (quantity == 0) ErrorRed else StaffGreen, family = Inter)
         }
         VSpace(14.dp)
     }
@@ -617,11 +648,16 @@ fun StaffMoreScreen(nav: NavController) {
     StaffScreen(nav = nav, tab = StaffTab.MORE, topBar = { StaffTopBar("Más herramientas") }) {
         val operation =
             listOfNotNull(
-                ToolItem(R.drawable.lucide_ic_credit_card, "Ventas y pagos", "Historial y nueva venta") { nav.navigate(Routes.S_SALE) }
+                ToolItem(R.drawable.lucide_ic_credit_card, "Ventas y pagos", "Nueva venta desde una cotización") { nav.navigate(Routes.S_QUOTE) }
                     .takeIf { role.can(StaffFeature.SALES) },
                 ToolItem(R.drawable.lucide_ic_file_text, "Cotizaciones", "Pendientes y enviadas") { nav.navigate(Routes.S_QUOTE) }
                     .takeIf { role.can(StaffFeature.QUOTES) },
-                ToolItem(R.drawable.lucide_ic_briefcase, "Órdenes de trabajo", "Producción y entregas", badge = "5") {
+                ToolItem(
+                    R.drawable.lucide_ic_briefcase,
+                    "Órdenes de trabajo",
+                    "Producción y entregas",
+                    badge = state.productionOrders.count { it.stage != ProductionStage.DELIVERED }.takeIf { it > 0 }?.toString(),
+                ) {
                     nav.navigate(Routes.S_PRODUCTION)
                 }.takeIf { role.can(StaffFeature.PRODUCTION) },
             )
@@ -633,10 +669,16 @@ fun StaffMoreScreen(nav: NavController) {
         }
         val management =
             listOfNotNull(
-                ToolItem(R.drawable.lucide_ic_bell, "Alertas", null, badge = "3") { nav.navigate(Routes.S_ALERTS) }
+                ToolItem(R.drawable.lucide_ic_bell, "Alertas", "Stock crítico y órdenes") { nav.navigate(Routes.S_ALERTS) }
                     .takeIf { role.can(StaffFeature.ALERTS) },
-                ToolItem(R.drawable.lucide_ic_chart_no_axes_column, "Reportes", null) { nav.navigate(Routes.S_REPORTS) }
+                ToolItem(R.drawable.lucide_ic_chart_no_axes_column, "Reportes", "Ventas, producción e inventario del mes") { nav.navigate(Routes.S_REPORTS) }
                     .takeIf { role.can(StaffFeature.REPORTS) },
+                ToolItem(R.drawable.lucide_ic_user, "Personal", "Altas, roles y accesos") { nav.navigate(Routes.S_STAFF_MEMBERS) }
+                    .takeIf { role.can(StaffFeature.MANAGEMENT) },
+                ToolItem(R.drawable.lucide_ic_box, "Proveedores", null) { nav.navigate(Routes.S_SUPPLIERS) }
+                    .takeIf { role.can(StaffFeature.MANAGEMENT) },
+                ToolItem(R.drawable.lucide_ic_calendar, "Horarios de atención", "Abrir turnos para reservar") { nav.navigate(Routes.S_SCHEDULE) }
+                    .takeIf { role.can(StaffFeature.MANAGEMENT) },
                 ToolItem(R.drawable.lucide_ic_settings, "Configuración y permisos", null) { nav.navigate(Routes.P_SETTINGS + "?staff=true") },
                 ToolItem(R.drawable.lucide_ic_circle_question_mark, "Ayuda y documentación", null) {},
                 ToolItem(R.drawable.lucide_ic_user, "Cerrar sesión", null) { vm.clearSession { nav.switchRoot(Routes.AUTH) } },

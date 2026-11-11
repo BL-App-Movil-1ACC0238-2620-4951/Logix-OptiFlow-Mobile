@@ -10,11 +10,14 @@ enum class StaffFeature {
     CLINICAL,
     STOCK,
     INVENTORY,
+    CATALOG,
     QUOTES,
     SALES,
     PRODUCTION,
     ALERTS,
     REPORTS,
+    /** Personal, proveedores y horarios: solo el admin. */
+    MANAGEMENT,
 }
 
 val StaffRole?.features: Set<StaffFeature>
@@ -22,7 +25,7 @@ val StaffRole?.features: Set<StaffFeature>
         when (this) {
             StaffRole.OPTOMETRIST -> setOf(StaffFeature.AGENDA, StaffFeature.PATIENTS, StaffFeature.CLINICAL)
             StaffRole.SALES_ADVISOR ->
-                setOf(StaffFeature.AGENDA, StaffFeature.PATIENTS, StaffFeature.STOCK, StaffFeature.QUOTES, StaffFeature.SALES)
+                setOf(StaffFeature.AGENDA, StaffFeature.PATIENTS, StaffFeature.STOCK, StaffFeature.CATALOG, StaffFeature.QUOTES, StaffFeature.SALES)
             StaffRole.TECHNICIAN -> setOf(StaffFeature.PRODUCTION)
             StaffRole.ADMIN -> StaffFeature.entries.toSet()
             null -> emptySet()
