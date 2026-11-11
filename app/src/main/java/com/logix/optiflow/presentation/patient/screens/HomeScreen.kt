@@ -58,6 +58,7 @@ import com.logix.optiflow.presentation.patient.components.image
 import com.logix.optiflow.presentation.patient.components.patientViewModel
 import com.logix.optiflow.presentation.patient.components.priceLabel
 import com.logix.optiflow.presentation.patient.components.shapeLabel
+import com.logix.optiflow.presentation.patient.components.tryOnStyle
 import com.logix.optiflow.presentation.shared.components.BellButton
 import com.logix.optiflow.presentation.shared.components.HSpace
 import com.logix.optiflow.presentation.shared.components.IconTile
@@ -143,7 +144,7 @@ fun PatientHomeScreen(nav: NavController, catalogVm: CatalogViewModel = hiltView
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
             TryOnBanner(onClick = {
-                featured.firstOrNull()?.let { nav.navigate(Routes.tryOn(it.sku)) } ?: nav.navigate(Routes.P_CATALOG)
+                catalog.frames.firstOrNull { it.tryOnStyle != null }?.let { nav.navigate(Routes.tryOn(it.sku)) } ?: nav.navigate(Routes.P_CATALOG)
             })
 
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
