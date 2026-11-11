@@ -33,6 +33,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -182,6 +183,7 @@ class PatientViewModel @Inject constructor(
 
     private val cancelledIds = mutableSetOf<String>()
     private var recordsById: Map<String, ClinicalRecord> = emptyMap()
+    private var refreshJob: Job? = null
 
     init {
         refresh()
@@ -193,7 +195,9 @@ class PatientViewModel @Inject constructor(
     }
 
     fun refresh() {
-        viewModelScope.launch {
+        // init y la pantalla de Inicio piden recargar casi a la vez: no repetir las consultas.
+        if (refreshJob?.isActive == true) return
+        refreshJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             val session = runCatching { patientRepository.getSession() }.getOrNull()
             val storesJob = async { getOpticalStores().getOrDefault(emptyList()) }
