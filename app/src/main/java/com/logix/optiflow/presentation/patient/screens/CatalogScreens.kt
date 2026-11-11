@@ -1,5 +1,10 @@
 package com.logix.optiflow.presentation.patient.screens
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -35,20 +40,23 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.lerp
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.logix.optiflow.R
@@ -56,10 +64,15 @@ import com.logix.optiflow.domain.model.inventory.FrameModel
 import com.logix.optiflow.presentation.navigation.Routes
 import com.logix.optiflow.presentation.navigation.goPatientTab
 import com.logix.optiflow.presentation.patient.CatalogViewModel
+import com.logix.optiflow.presentation.patient.components.EyePositions
+import com.logix.optiflow.presentation.patient.components.FaceCamera
 import com.logix.optiflow.presentation.patient.components.PatientScreen
+import com.logix.optiflow.presentation.patient.components.drawGlasses
 import com.logix.optiflow.presentation.patient.components.image
 import com.logix.optiflow.presentation.patient.components.priceLabel
 import com.logix.optiflow.presentation.patient.components.shapeLabel
+import com.logix.optiflow.presentation.patient.components.tryOnFinish
+import com.logix.optiflow.presentation.patient.components.tryOnStyle
 import com.logix.optiflow.presentation.search.screens.SearchField
 import com.logix.optiflow.presentation.shared.components.BellButton
 import com.logix.optiflow.presentation.shared.components.Divider
@@ -81,11 +94,9 @@ import com.logix.optiflow.presentation.theme.DeepNavy
 import com.logix.optiflow.presentation.theme.Electric
 import com.logix.optiflow.presentation.theme.Emerald700
 import com.logix.optiflow.presentation.theme.InfoBanner
-import com.logix.optiflow.presentation.theme.Lavender
 import com.logix.optiflow.presentation.theme.Mint100
 import com.logix.optiflow.presentation.theme.NavyBlue
 import com.logix.optiflow.presentation.theme.PatientHeader
-import com.logix.optiflow.presentation.theme.Periwinkle
 import com.logix.optiflow.presentation.theme.SkyTint
 import com.logix.optiflow.presentation.theme.Slate400
 import com.logix.optiflow.presentation.theme.Slate500
@@ -369,6 +380,19 @@ fun FrameDetailScreen(nav: NavController, sku: String, vm: CatalogViewModel = hi
                 }
             }
             VSpace(52.dp)
+            if (frame.tryOnStyle != null) {
+                SolidButton(
+                    text = "Probar virtualmente",
+                    onClick = { nav.navigate(Routes.tryOn(frame.sku)) },
+                    background = White,
+                    contentColor = Electric,
+                    border = Electric,
+                    leadingIcon = R.drawable.lucide_ic_glasses,
+                    fontSize = 15,
+                    weight = FontWeight.SemiBold,
+                )
+                VSpace(12.dp)
+            }
             SolidButton(
                 text = "Ver ópticas con disponibilidad",
                 onClick = { nav.navigate(Routes.book()) },
@@ -384,14 +408,25 @@ fun FrameDetailScreen(nav: NavController, sku: String, vm: CatalogViewModel = hi
 @Composable
 fun TryOnScreen(nav: NavController, sku: String, vm: CatalogViewModel = hiltViewModel()) {
     com.logix.optiflow.presentation.shared.components.StatusBarIcons(lightIcons = true)
+    val context = LocalContext.current
     val state by vm.uiState.collectAsStateWithLifecycle()
     val frame = state.frame(sku)
-    if (frame == null) {
+    val style = frame?.tryOnStyle
+    if (frame == null || style == null) {
+        // Sin modelo de prueba virtual no hay probador (US21, escenario 2).
         if (!state.isLoading) LaunchedEffect(Unit) { nav.popBackStack() }
         return
     }
-    var color by remember { mutableIntStateOf(0) }
-    val colors = listOf(frame.color.orEmpty().ifBlank { "Original" } to Electric)
+    var hasCamera by remember { mutableStateOf(hasCameraPermission(context)) }
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { hasCamera = it }
+    LaunchedEffect(Unit) { if (!hasCamera) permission.launch(Manifest.permission.CAMERA) }
+    LifecycleResumeEffect(Unit) {
+        // Por si el permiso se dio desde Ajustes.
+        hasCamera = hasCameraPermission(context)
+        onPauseOrDispose {}
+    }
+    var eyes by remember { mutableStateOf<EyePositions?>(null) }
+    val finish = frame.tryOnFinish
 
     Column(Modifier.fillMaxSize().background(Color(0xFF14295A))) {
         Box(
@@ -402,7 +437,29 @@ fun TryOnScreen(nav: NavController, sku: String, vm: CatalogViewModel = hiltView
                     Brush.radialGradient(listOf(Color(0xFF2B4F96), Color(0xFF14295A), Color(0xFF0D1C44))),
                 ),
         ) {
-            CameraGuide()
+            if (hasCamera) {
+                FaceCamera(
+                    onEyes = { found ->
+                        // Se suaviza el movimiento para que la montura no tiemble.
+                        eyes = found?.let { new ->
+                            eyes?.let { old ->
+                                EyePositions(lerp(old.left, new.left, 0.5f), lerp(old.right, new.right, 0.5f), (old.yaw + new.yaw) / 2)
+                            } ?: new
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                )
+                Canvas(Modifier.fillMaxSize()) { eyes?.let { drawGlasses(style, finish, it) } }
+            } else {
+                Txt(
+                    "Toca aquí para permitir la cámara (o actívala en Ajustes).",
+                    13,
+                    color = White,
+                    align = TextAlign.Center,
+                    modifier = Modifier.align(Alignment.Center).padding(32.dp).tap { permission.launch(Manifest.permission.CAMERA) },
+                )
+            }
+            if (hasCamera && eyes == null) CameraGuide()
             Row(
                 Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 20.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -412,35 +469,37 @@ fun TryOnScreen(nav: NavController, sku: String, vm: CatalogViewModel = hiltView
                     Txt("Prueba virtual", 16, weight = FontWeight.Bold, color = White)
                     Txt("${frame.name} · Cámara AR", 11, color = White.copy(alpha = 0.7f))
                 }
-                CameraButton(R.drawable.lucide_ic_circle_question_mark) {}
+                Spacer(Modifier.size(40.dp))
             }
-            Row(
-                Modifier
-                    .statusBarsPadding()
-                    .padding(start = 20.dp, top = 70.dp)
-                    .clip(CircleShape)
-                    .background(Color(0x40000000))
-                    .border(1.dp, Color(0x33FFFFFF), CircleShape)
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(Modifier.size(7.dp).clip(CircleShape).background(Color(0xFF60A5FA)))
-                HSpace(7.dp)
-                Txt("Rostro detectado", 11, weight = FontWeight.SemiBold, color = White)
-            }
-            Row(
-                Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 36.dp)
-                    .clip(CircleShape)
-                    .background(Color(0x40000000))
-                    .border(1.dp, Color(0x33FFFFFF), CircleShape)
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                LIcon(R.drawable.lucide_ic_eye, White, 14.dp)
-                HSpace(8.dp)
-                Txt("Mira de frente y mantén el rostro dentro de la guía", 11, color = White)
+            if (hasCamera) {
+                Row(
+                    Modifier
+                        .statusBarsPadding()
+                        .padding(start = 20.dp, top = 70.dp)
+                        .clip(CircleShape)
+                        .background(Color(0x40000000))
+                        .border(1.dp, Color(0x33FFFFFF), CircleShape)
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.size(7.dp).clip(CircleShape).background(if (eyes != null) Color(0xFF60A5FA) else Slate400))
+                    HSpace(7.dp)
+                    Txt(if (eyes != null) "Rostro detectado" else "Buscando tu rostro…", 11, weight = FontWeight.SemiBold, color = White)
+                }
+                Row(
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 36.dp)
+                        .clip(CircleShape)
+                        .background(Color(0x40000000))
+                        .border(1.dp, Color(0x33FFFFFF), CircleShape)
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    LIcon(R.drawable.lucide_ic_eye, White, 14.dp)
+                    HSpace(8.dp)
+                    Txt("Mira de frente y mantén el rostro dentro de la guía", 11, color = White)
+                }
             }
         }
         Column(
@@ -449,99 +508,36 @@ fun TryOnScreen(nav: NavController, sku: String, vm: CatalogViewModel = hiltView
                 .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
                 .background(White),
         ) {
-            Box(
-                Modifier
-                    .padding(top = 10.dp)
-                    .align(Alignment.CenterHorizontally)
-                    .size(width = 40.dp, height = 4.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFD1D5DB)),
-            )
-            Column(Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Image(
-                        painter = painterResource(frame.image),
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.size(62.dp).clip(RoundedCornerShape(12.dp)),
-                    )
-                    HSpace(14.dp)
-                    Column(Modifier.weight(1f)) {
-                        Txt("PROBANDO AHORA", 11, weight = FontWeight.Bold, color = Electric)
-                        Txt(frame.name, 18, weight = FontWeight.ExtraBold, color = DeepNavy, maxLines = 1)
-                        Txt("${colors[color].first} · ${frame.priceLabel}", 12, color = Slate500)
-                    }
-                    Box(
-                        Modifier
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(SkyTint)
-                            .tap { nav.navigate(Routes.frame(frame.sku)) }
-                            .padding(horizontal = 14.dp, vertical = 7.dp),
-                    ) {
-                        Txt("Ver stock", 12, weight = FontWeight.Bold, color = Electric)
-                    }
+            Row(Modifier.padding(horizontal = 20.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Image(
+                    painter = painterResource(frame.image),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.size(62.dp).clip(RoundedCornerShape(12.dp)),
+                )
+                HSpace(14.dp)
+                Column(Modifier.weight(1f)) {
+                    Txt("PROBANDO AHORA", 11, weight = FontWeight.Bold, color = Electric)
+                    Txt(frame.name, 18, weight = FontWeight.ExtraBold, color = DeepNavy, maxLines = 1)
+                    Txt(listOfNotNull(frame.color, frame.priceLabel).joinToString(" · "), 12, color = Slate500)
                 }
-                VSpace(4.dp)
-                Txt("Elige un color", 11, weight = FontWeight.Bold, color = DeepNavy)
-                VSpace(8.dp)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    colors.forEachIndexed { index, (label, swatch) ->
-                        val selected = index == color
-                        Row(
-                            Modifier
-                                .height(32.dp)
-                                .clip(CircleShape)
-                                .background(White)
-                                .border(if (selected) 2.dp else 1.dp, if (selected) Electric else Color(0xFFE2E8F0), CircleShape)
-                                .tap { color = index }
-                                .padding(horizontal = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Box(
-                                Modifier
-                                    .size(14.dp)
-                                    .clip(CircleShape)
-                                    .background(swatch)
-                                    .border(1.dp, Color(0xFFCBD5E1), CircleShape),
-                            )
-                            HSpace(8.dp)
-                            Txt(
-                                label,
-                                12,
-                                weight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (selected) DeepNavy else Slate500,
-                            )
-                        }
-                    }
-                }
-                VSpace(14.dp)
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(SkyTint)
+                        .tap { nav.navigate(Routes.frame(frame.sku)) }
+                        .padding(horizontal = 14.dp, vertical = 7.dp),
                 ) {
-                    IconTile(R.drawable.lucide_ic_camera, Periwinkle, DeepNavy, size = 48.dp, iconSize = 20.dp, radius = 14.dp)
-                    Box(
-                        Modifier
-                            .size(64.dp)
-                            .shadow(10.dp, CircleShape, spotColor = Electric)
-                            .clip(CircleShape)
-                            .background(Lavender)
-                            .padding(4.dp)
-                            .clip(CircleShape)
-                            .background(Electric),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Box(Modifier.size(18.dp).clip(CircleShape).background(Color(0xFF3B4FD8)))
-                    }
-                    IconTile(R.drawable.lucide_ic_ellipsis, Periwinkle, DeepNavy, size = 48.dp, iconSize = 20.dp, radius = 14.dp)
+                    Txt("Ver stock", 12, weight = FontWeight.Bold, color = Electric)
                 }
-                VSpace(6.dp)
             }
             PatientBottomBar(PatientTab.SEARCH) { nav.goPatientTab(it) }
         }
     }
 }
+
+private fun hasCameraPermission(context: Context): Boolean =
+    ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
 
 @Composable
 private fun CameraButton(icon: Int, onClick: () -> Unit) {
@@ -558,7 +554,7 @@ private fun CameraButton(icon: Int, onClick: () -> Unit) {
     }
 }
 
-/** Guía de rostro dibujada (rejilla, óvalo punteado y armazón superpuesto). */
+/** Guía de rostro (rejilla y óvalo punteado) mientras no se detecta una cara. */
 @Composable
 private fun CameraGuide() {
     Canvas(Modifier.fillMaxSize()) {
@@ -574,17 +570,5 @@ private fun CameraGuide() {
             size = Size(ovalW, ovalH),
             style = Stroke(width = 2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(14f, 10f))),
         )
-        val frameColor = Color(0xFF14254F)
-        val lensW = ovalW * 0.62f
-        val lensH = lensW * 0.55f
-        val gap = ovalW * 0.18f
-        val y = center.y - lensH * 0.9f
-        val stroke = Stroke(width = 5.dp.toPx())
-        drawRoundRect(frameColor, Offset(center.x - gap / 2 - lensW, y), Size(lensW, lensH), CornerRadius(14.dp.toPx()), style = stroke)
-        drawRoundRect(frameColor, Offset(center.x + gap / 2, y), Size(lensW, lensH), CornerRadius(14.dp.toPx()), style = stroke)
-        drawLine(frameColor, Offset(center.x - gap / 2, y + lensH * 0.3f), Offset(center.x + gap / 2, y + lensH * 0.3f), 5.dp.toPx())
-        drawLine(frameColor, Offset(center.x - gap / 2 - lensW, y + lensH * 0.2f), Offset(center.x - gap / 2 - lensW - 20.dp.toPx(), y + lensH * 0.15f), 5.dp.toPx())
-        drawLine(frameColor, Offset(center.x + gap / 2 + lensW, y + lensH * 0.2f), Offset(center.x + gap / 2 + lensW + 20.dp.toPx(), y + lensH * 0.15f), 5.dp.toPx())
     }
 }
-

@@ -101,6 +101,7 @@ dependencies {
     implementation(libs.androidx.camera.view)
     implementation(libs.androidx.camera.mlkit.vision)
     implementation(libs.mlkit.barcode.scanning)
+    implementation(libs.mlkit.face.detection)
 
     val composeBom = platform(libs.androidx.compose.bom)
     implementation(composeBom)
