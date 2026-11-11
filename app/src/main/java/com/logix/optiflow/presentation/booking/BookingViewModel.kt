@@ -8,7 +8,12 @@ import com.logix.optiflow.domain.model.STORE_ZONE
 import com.logix.optiflow.domain.model.searchbooking.PatientSession
 import com.logix.optiflow.domain.model.searchbooking.TimeSlot
 import com.logix.optiflow.domain.usecase.searchbooking.BookAppointmentUseCase
+import com.logix.optiflow.domain.model.searchbooking.location
+import com.logix.optiflow.domain.usecase.searchbooking.GetCurrentLocationUseCase
+import com.logix.optiflow.domain.usecase.searchbooking.GetFirstAvailableSlotsUseCase
 import com.logix.optiflow.domain.usecase.searchbooking.GetOpticalStoresUseCase
+import com.logix.optiflow.presentation.shared.distanceLabel
+import com.logix.optiflow.presentation.shared.slotDayLabel
 import com.logix.optiflow.domain.usecase.searchbooking.GetPatientSessionUseCase
 import com.logix.optiflow.domain.usecase.searchbooking.GetStoreAvailabilityUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -32,7 +37,8 @@ data class StoreOption(
     val id: UUID?,
     val name: String,
     val address: String,
-    val distance: String,
+    /** "0,8 km" si hay ubicación del celular y de la óptica. */
+    val distance: String?,
     val availability: String,
     val availableToday: Boolean,
 )
@@ -66,7 +72,7 @@ data class BookingUiState(
         get() =
             (selectedDate ?: weekStart).format(DateTimeFormatter.ofPattern("MMMM yyyy", es))
                 .replaceFirstChar { it.titlecase(es) }
-    val patientName: String get() = session?.name?.takeIf { it.isNotBlank() } ?: "Valentina Silva"
+    val patientName: String get() = session?.name?.takeIf { it.isNotBlank() } ?: "Paciente"
 
     fun hasSlots(date: LocalDate): Boolean = slots.any { it.date == date }
 }
@@ -79,6 +85,8 @@ class BookingViewModel @Inject constructor(
     private val getAvailability: GetStoreAvailabilityUseCase,
     private val bookAppointment: BookAppointmentUseCase,
     private val getPatientSession: GetPatientSessionUseCase,
+    private val getCurrentLocation: GetCurrentLocationUseCase,
+    private val getFirstAvailableSlots: GetFirstAvailableSlotsUseCase,
 ) : ViewModel() {
 
     private val preselectedStoreId: UUID? =
@@ -94,16 +102,20 @@ class BookingViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true) }
             val session = runCatching { getPatientSession() }.getOrNull()
             val storesResult = getOpticalStores()
+            val stores = storesResult.getOrDefault(emptyList())
+            val location = getCurrentLocation()
+            val firstSlots = getFirstAvailableSlots(stores.map { it.id })
+            val today = LocalDate.now(STORE_ZONE)
             val options =
-                storesResult.getOrDefault(emptyList()).mapIndexed { index, store ->
-                    val today = index % 2 == 0
+                stores.map { store ->
+                    val first = firstSlots[store.id]
                     StoreOption(
                         id = store.id,
                         name = store.name,
                         address = store.address,
-                        distance = DISTANCES[index % DISTANCES.size],
-                        availability = if (today) "Disponible hoy" else "Disponible mañana",
-                        availableToday = today,
+                        distance = location?.let { user -> store.location?.let { distanceLabel(user.distanceKmTo(it)) } },
+                        availability = first?.let { "Disponible ${slotDayLabel(it).replaceFirstChar(Char::lowercase)}" } ?: "Sin turnos libres",
+                        availableToday = first?.atZone(STORE_ZONE)?.toLocalDate() == today,
                     )
                 }
             val preselected = options.indexOfFirst { it.id != null && it.id == preselectedStoreId }
@@ -203,9 +215,5 @@ class BookingViewModel @Inject constructor(
     private fun toOption(slot: TimeSlot): SlotOption {
         val local = slot.startDateTime.atZone(zone)
         return SlotOption(id = slot.id, date = local.toLocalDate(), time = local.toLocalTime())
-    }
-
-    companion object {
-        private val DISTANCES = listOf("0,8 km", "3,2 km", "1,4 km", "3,6 km")
     }
 }

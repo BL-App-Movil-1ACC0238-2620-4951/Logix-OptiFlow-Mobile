@@ -35,6 +35,9 @@ interface SearchBookingApi {
         @Query("name") name: String? = null,
         @Query("address") address: String? = null,
         @Query("minRating") minRating: Double? = null,
+        @Query("lat") latitude: Double? = null,
+        @Query("lng") longitude: Double? = null,
+        @Query("radiusKm") radiusKm: Double? = null,
     ): List<OpticalStoreDto>
 
     @GET("optical-stores/{id}/time-slots")

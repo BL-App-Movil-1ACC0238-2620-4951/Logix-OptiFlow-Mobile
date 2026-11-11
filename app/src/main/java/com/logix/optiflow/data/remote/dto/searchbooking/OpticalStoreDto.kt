@@ -9,4 +9,6 @@ data class OpticalStoreDto(
     val phone: String,
     val rating: Double?,
     val status: String,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
 )

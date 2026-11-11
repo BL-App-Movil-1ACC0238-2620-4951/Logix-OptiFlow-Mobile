@@ -1,6 +1,18 @@
 package com.logix.optiflow.presentation.search.screens
 
-import androidx.compose.foundation.Canvas
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalContext
+import com.logix.optiflow.domain.model.searchbooking.GeoPoint
+import com.logix.optiflow.presentation.search.StoreFilter
+import com.logix.optiflow.presentation.search.components.LOCATION_PERMISSIONS
+import com.logix.optiflow.presentation.search.components.StoreMap
+import com.logix.optiflow.presentation.search.components.hasLocationPermission
+import com.logix.optiflow.presentation.shared.distanceLabel
+import com.logix.optiflow.presentation.shared.firstSlotLabel
+import java.time.Instant
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
@@ -11,7 +23,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -26,14 +37,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
@@ -76,27 +85,30 @@ import com.logix.optiflow.presentation.theme.White
 import java.util.Locale
 import kotlinx.coroutines.delay
 
-private val chips = listOf("Cerca de mí", "Abierto ahora", "Primera hora")
-private val distances = listOf("0,8 km", "1,4 km", "2,1 km", "3,2 km")
-private val firstSlots = listOf("Hoy · 10:30", "Hoy · 12:00", "Mañana · 09:00", "Mañana · 11:30")
-
 @Composable
 fun StoreSearchScreen(nav: NavController) {
     val viewModel: StoreSearchViewModel = hiltViewModel()
     val state by viewModel.uiState.collectAsState()
-    var chip by remember { mutableIntStateOf(0) }
+    val context = LocalContext.current
+    var askedLocation by rememberSaveable { mutableStateOf(false) }
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        viewModel.refreshLocation()
+    }
+    LaunchedEffect(Unit) {
+        if (hasLocationPermission(context)) {
+            viewModel.refreshLocation()
+        } else if (!askedLocation) {
+            askedLocation = true
+            permission.launch(LOCATION_PERMISSIONS)
+        }
+    }
 
     LaunchedEffect(state.nameQuery) {
         delay(400)
         viewModel.search()
     }
 
-    val stores =
-        when (chip) {
-            1 -> state.stores.filter { it.status.uppercase(Locale.US) in setOf("ACTIVE", "OPEN", "ABIERTO") }
-            2 -> state.stores.sortedByDescending { it.rating ?: 0.0 }
-            else -> state.stores
-        }
+    val stores = state.visibleStores
 
     PatientScreen(
         nav = nav,
@@ -151,11 +163,16 @@ fun StoreSearchScreen(nav: NavController) {
                 Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                chips.forEachIndexed { index, label ->
+                StoreFilter.entries.forEach { filter ->
                     SegmentChip(
-                        text = label,
-                        selected = chip == index,
-                        onClick = { chip = index },
+                        text = filter.label,
+                        selected = state.filter == filter,
+                        onClick = {
+                            if (filter == StoreFilter.NEARBY && !hasLocationPermission(context)) {
+                                permission.launch(LOCATION_PERMISSIONS)
+                            }
+                            viewModel.setFilter(filter)
+                        },
                         selectedBg = DeepNavy,
                         selectedText = White,
                         unselectedText = DeepNavy,
@@ -167,11 +184,27 @@ fun StoreSearchScreen(nav: NavController) {
                 }
             }
             VSpace(22.dp)
-            MapPreview(count = stores.size)
+            MapPreview(
+                stores = stores,
+                userLocation = state.userLocation,
+                onOpen = { nav.navigate(Routes.P_STORE_MAP) },
+            )
             VSpace(28.dp)
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Txt("Resultados cercanos", 17, weight = FontWeight.Bold, color = DeepNavy, modifier = Modifier.weight(1f))
-                Txt("Mapa", 12, weight = FontWeight.Bold, color = Electric)
+                Txt(
+                    if (state.userLocation != null) "Resultados cercanos" else "Resultados",
+                    17,
+                    weight = FontWeight.Bold,
+                    color = DeepNavy,
+                    modifier = Modifier.weight(1f),
+                )
+                Txt(
+                    "Ver mapa",
+                    12,
+                    weight = FontWeight.Bold,
+                    color = Electric,
+                    modifier = Modifier.tap { nav.navigate(Routes.P_STORE_MAP) },
+                )
             }
             VSpace(14.dp)
             if (state.isLoading && stores.isEmpty()) {
@@ -182,10 +215,11 @@ fun StoreSearchScreen(nav: NavController) {
             ErrorBanner(state.errorMessage)
             state.infoMessage?.let { Txt(it, 12, color = Slate500) }
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                stores.forEachIndexed { index, store ->
+                stores.forEach { store ->
                     StoreCard(
                         store = store,
-                        index = index,
+                        distanceKm = state.distanceKm(store),
+                        firstSlot = state.firstSlots[store.id],
                         isFavorite = store.id in state.favoriteStoreIds,
                         onFavorite = { viewModel.saveFavorite(store.id) },
                     ) { nav.navigate(Routes.book(store.id)) }
@@ -235,62 +269,40 @@ fun SearchField(
 }
 
 @Composable
-private fun MapPreview(count: Int) {
+private fun MapPreview(stores: List<OpticalStore>, userLocation: GeoPoint?, onOpen: () -> Unit) {
     Box(
         Modifier
             .fillMaxWidth()
             .height(144.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(Color(0xFFD9E5FB))
             .border(1.dp, SkyTint, RoundedCornerShape(16.dp)),
     ) {
-        Canvas(Modifier.fillMaxSize()) {
-            val step = 34.dp.toPx()
-            var x = -size.height
-            while (x < size.width + size.height) {
-                drawLine(
-                    color = Color(0xFFE7EEFD),
-                    start = Offset(x, size.height),
-                    end = Offset(x + size.height, 0f),
-                    strokeWidth = 14.dp.toPx(),
-                )
-                x += step
-            }
-        }
-        MapPin(Modifier.offset(x = 82.dp, y = 32.dp))
-        MapPin(Modifier.offset(x = 276.dp, y = 42.dp))
-        MapPin(Modifier.offset(x = 171.dp, y = 90.dp))
+        StoreMap(
+            stores = stores,
+            userLocation = userLocation,
+            modifier = Modifier.fillMaxSize(),
+            interactive = false,
+            onMapClick = onOpen,
+        )
         Box(
             Modifier
-                .align(Alignment.BottomStart)
-                .padding(start = 14.dp, bottom = 14.dp)
+                .align(Alignment.TopStart)
+                .padding(start = 14.dp, top = 14.dp)
                 .card(radius = 10.dp, elevation = 2.dp)
+                .tap(onOpen)
                 .padding(horizontal = 12.dp, vertical = 7.dp),
         ) {
-            Txt("$count ópticas cerca de ti", 12, weight = FontWeight.Bold, color = DeepNavy)
+            val label = if (userLocation != null) "cerca de ti" else "en el mapa"
+            Txt("${stores.size} ópticas $label", 12, weight = FontWeight.Bold, color = DeepNavy)
         }
-    }
-}
-
-@Composable
-private fun MapPin(modifier: Modifier) {
-    Box(
-        modifier
-            .size(30.dp)
-            .shadow(4.dp, CircleShape)
-            .clip(CircleShape)
-            .background(PatientHeader)
-            .border(2.dp, White, CircleShape),
-        contentAlignment = Alignment.Center,
-    ) {
-        LIcon(R.drawable.lucide_ic_map_pin, White, 15.dp)
     }
 }
 
 @Composable
 private fun StoreCard(
     store: OpticalStore,
-    index: Int,
+    distanceKm: Double?,
+    firstSlot: Instant?,
     isFavorite: Boolean,
     onFavorite: () -> Unit,
     onClick: () -> Unit,
@@ -307,7 +319,7 @@ private fun StoreCard(
         HSpace(12.dp)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Pill(
-                text = firstSlots[index % firstSlots.size],
+                text = firstSlot?.let(::firstSlotLabel) ?: "Sin turnos libres",
                 background = SkyTint,
                 color = DeepNavy,
                 icon = R.drawable.lucide_ic_clock,
@@ -319,7 +331,7 @@ private fun StoreCard(
                 LIcon(R.drawable.lucide_ic_map_pin, NavyBlue, 14.dp)
                 HSpace(5.dp)
                 val rating = store.rating?.let { String.format(Locale("es"), "%.1f", it) } ?: "—"
-                Txt("$rating · ${distances[index % distances.size]}", 12, color = Slate500)
+                Txt(listOfNotNull(rating, distanceKm?.let(::distanceLabel)).joinToString(" · "), 12, color = Slate500)
             }
             Txt("Examen visual · Lentes · Monturas", 11, color = Slate400, maxLines = 1)
         }

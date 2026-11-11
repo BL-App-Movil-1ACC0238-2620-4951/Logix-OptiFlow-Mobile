@@ -43,6 +43,17 @@ class OpticalStoreRepositoryImpl @Inject constructor(
             )
         }
 
+    override suspend fun getNearbyOpticalStores(
+        latitude: Double,
+        longitude: Double,
+        radiusKm: Double,
+    ): Result<List<OpticalStore>> =
+        safeApiCall {
+            api
+                .listOpticalStores(latitude = latitude, longitude = longitude, radiusKm = radiusKm)
+                .map { it.toDomain() }
+        }
+
     override suspend fun rateOpticalStore(
         opticalStoreId: UUID,
         patientId: UUID,

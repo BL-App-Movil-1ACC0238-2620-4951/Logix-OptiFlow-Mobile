@@ -11,4 +11,6 @@ fun OpticalStoreDto.toDomain(): OpticalStore =
         phone = phone,
         rating = rating,
         status = status,
+        latitude = latitude,
+        longitude = longitude,
     )

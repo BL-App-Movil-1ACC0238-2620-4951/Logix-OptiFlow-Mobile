@@ -11,6 +11,7 @@ import com.logix.optiflow.data.repository.notification.LoyaltyAccountRepositoryI
 import com.logix.optiflow.data.repository.notification.NotificationRepositoryImpl
 import com.logix.optiflow.data.repository.production.WorkOrderRepositoryImpl
 import com.logix.optiflow.data.repository.searchbooking.AppointmentRepositoryImpl
+import com.logix.optiflow.data.repository.searchbooking.LocationRepositoryImpl
 import com.logix.optiflow.data.repository.searchbooking.OpticalStoreRepositoryImpl
 import com.logix.optiflow.data.repository.searchbooking.PatientRepositoryImpl
 import com.logix.optiflow.data.repository.searchbooking.StaffMemberRepositoryImpl
@@ -25,6 +26,7 @@ import com.logix.optiflow.domain.repository.notification.LoyaltyAccountRepositor
 import com.logix.optiflow.domain.repository.notification.NotificationRepository
 import com.logix.optiflow.domain.repository.production.WorkOrderRepository
 import com.logix.optiflow.domain.repository.searchbooking.AppointmentRepository
+import com.logix.optiflow.domain.repository.searchbooking.LocationRepository
 import com.logix.optiflow.domain.repository.searchbooking.OpticalStoreRepository
 import com.logix.optiflow.domain.repository.searchbooking.PatientRepository
 import com.logix.optiflow.domain.repository.searchbooking.StaffMemberRepository
@@ -45,6 +47,9 @@ abstract class RepositoryModule {
 
     @Binds
     abstract fun bindAppointmentRepository(impl: AppointmentRepositoryImpl): AppointmentRepository
+
+    @Binds
+    abstract fun bindLocationRepository(impl: LocationRepositoryImpl): LocationRepository
 
     @Binds
     abstract fun bindNotificationRepository(impl: NotificationRepositoryImpl): NotificationRepository

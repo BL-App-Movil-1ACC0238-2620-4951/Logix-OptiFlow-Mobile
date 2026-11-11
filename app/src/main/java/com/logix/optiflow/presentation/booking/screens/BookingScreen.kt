@@ -203,7 +203,7 @@ private fun ColumnScope.StoreStep(state: BookingUiState, vm: BookingViewModel) {
                     LIcon(R.drawable.lucide_ic_map_pin, if (selected) Electric else Slate500, 12.dp)
                     HSpace(4.dp)
                     Txt(
-                        "${store.distance} · ${store.availability}",
+                        listOfNotNull(store.distance, store.availability).joinToString(" · "),
                         12,
                         weight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                         color = if (selected) Electric else Slate500,
@@ -389,7 +389,7 @@ private fun ColumnScope.ConfirmStep(state: BookingUiState, vm: BookingViewModel,
     VSpace(10.dp)
     Column(Modifier.fillMaxWidth().card(radius = 16.dp, border = Lavender).padding(horizontal = 14.dp)) {
         val store = state.selectedStore
-        ConfirmRow(R.drawable.lucide_ic_map_pin, "Sucursal", store?.let { if (it.id != null) it.name else "Óptica Visión Norte · ${it.name}" } ?: "—")
+        ConfirmRow(R.drawable.lucide_ic_map_pin, "Sucursal", store?.name ?: "—")
         Divider(Lavender)
         ConfirmRow(R.drawable.lucide_ic_user_round, "Paciente", state.patientName)
         Divider(Lavender)
@@ -519,7 +519,7 @@ private fun ColumnScope.DoneStep(state: BookingUiState, onAppointments: () -> Un
                 padding = PaddingValues(horizontal = 10.dp, vertical = 3.dp),
             )
             Txt("${slot?.label ?: ""} · Cita en óptica", 14, weight = FontWeight.Bold, color = Ink)
-            Txt(state.selectedStore?.let { if (it.id != null) it.name else "Óptica Visión Norte · ${it.name}" }.orEmpty(), 11, color = Slate500, maxLines = 1)
+            Txt(state.selectedStore?.name.orEmpty(), 11, color = Slate500, maxLines = 1)
         }
     }
     VSpace(26.dp)
