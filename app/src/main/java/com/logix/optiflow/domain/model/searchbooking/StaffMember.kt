@@ -8,4 +8,5 @@ data class StaffMember(
     val name: String,
     val email: String,
     val role: String,
+    val active: Boolean = true,
 )

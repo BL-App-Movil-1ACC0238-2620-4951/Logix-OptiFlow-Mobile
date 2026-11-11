@@ -12,6 +12,15 @@ interface PatientRepository {
         password: String,
     ): Result<Patient>
 
+    /** El personal registra a un paciente en la óptica; no cambia la sesión actual. */
+    suspend fun registerByStaff(
+        name: String,
+        email: String,
+        phone: String,
+        password: String,
+        birthDate: String?,
+    ): Result<Patient>
+
     /** Inicia sesión de un paciente o del personal y devuelve la sesión con su rol. */
     suspend fun login(
         email: String,
