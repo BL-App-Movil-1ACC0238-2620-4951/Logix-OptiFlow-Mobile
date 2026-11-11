@@ -17,6 +17,7 @@ data class RegisterPatientRequest(
     val email: String,
     val phone: String,
     val password: String,
+    val birthDate: String? = null,
 )
 
 data class LoginRequest(
