@@ -154,7 +154,7 @@ fun ProfileScreen(nav: NavController, accountVm: PatientAccountViewModel = hiltV
             )
             VSpace(14.dp)
             Txt(
-                "Tus datos de demostración se guardan solo en este dispositivo.",
+                "Lo último que consultaste se guarda en este dispositivo para verlo sin conexión.",
                 11,
                 color = Slate500,
                 align = TextAlign.Center,
