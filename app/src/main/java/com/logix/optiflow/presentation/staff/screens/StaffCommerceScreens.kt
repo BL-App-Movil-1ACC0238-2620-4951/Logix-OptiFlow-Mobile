@@ -1,6 +1,12 @@
 package com.logix.optiflow.presentation.staff.screens
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.SystemClock
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -26,7 +32,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -41,7 +49,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.navigation.NavController
@@ -63,6 +73,7 @@ import com.logix.optiflow.presentation.staff.NewFrameViewModel
 import com.logix.optiflow.presentation.staff.ReplenishViewModel
 import com.logix.optiflow.presentation.staff.StaffFeature
 import com.logix.optiflow.presentation.staff.can
+import com.logix.optiflow.presentation.staff.components.BarcodeScanner
 import com.logix.optiflow.presentation.staff.components.StaffButton
 import com.logix.optiflow.presentation.staff.components.StaffChip
 import com.logix.optiflow.presentation.staff.components.StaffHero
@@ -98,16 +109,45 @@ import com.logix.optiflow.presentation.theme.White
 private val ScanBg = Color(0xFF1F3A6D)
 private val ScanPanel = Color(0xFF1E4383)
 
+/** Los SKU del catálogo solo tienen letras, números y guiones; otros códigos (QR con enlaces, etc.) se ignoran. */
+private val SKU_PATTERN = Regex("[A-Z0-9-]{1,100}")
+
+private const val SAME_CODE_PAUSE_MS = 3_000L
+
+private fun hasCameraPermission(context: Context): Boolean =
+    ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+
 @Composable
 fun ScannerScreen(nav: NavController) {
     com.logix.optiflow.presentation.shared.components.StatusBarIcons(lightIcons = true)
+    val context = LocalContext.current
     var code by rememberSaveable { mutableStateOf("") }
+    var hasCamera by remember { mutableStateOf(hasCameraPermission(context)) }
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { hasCamera = it }
+    LaunchedEffect(Unit) { if (!hasCamera) permission.launch(Manifest.permission.CAMERA) }
+    // Al volver del detalle la montura suele seguir frente a la cámara: ese mismo código se ignora unos segundos.
+    var lastCode by rememberSaveable { mutableStateOf<String?>(null) }
+    var resumedAt by remember { mutableLongStateOf(0L) }
+    LifecycleResumeEffect(Unit) {
+        resumedAt = SystemClock.elapsedRealtime()
+        // Por si el permiso se dio desde Ajustes.
+        hasCamera = hasCameraPermission(context)
+        onPauseOrDispose {}
+    }
+    val onScanned: (String) -> Unit = { raw ->
+        val sku = raw.uppercase()
+        val repeated = sku == lastCode && SystemClock.elapsedRealtime() - resumedAt < SAME_CODE_PAUSE_MS
+        if (SKU_PATTERN.matches(sku) && !repeated && nav.currentDestination?.route == Routes.S_SCANNER) {
+            lastCode = sku
+            nav.navigate(Routes.product(sku))
+        }
+    }
     Column(Modifier.fillMaxSize().background(ScanBg).statusBarsPadding().navigationBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             LIcon(R.drawable.lucide_ic_chevron_left, White, 24.dp, Modifier.tap { nav.popBackStack() })
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                 Txt("Escanear producto", 14, color = White, family = Inter)
-                Txt("Por ahora escribe el SKU de la montura", 9, color = White.copy(alpha = 0.8f), family = Inter)
+                Txt("Apunta al código de la montura", 9, color = White.copy(alpha = 0.8f), family = Inter)
             }
             LIcon(R.drawable.lucide_ic_circle_question_mark, White, 22.dp)
         }
@@ -120,6 +160,18 @@ fun ScannerScreen(nav: NavController) {
                 .background(ScanPanel),
             contentAlignment = Alignment.Center,
         ) {
+            if (hasCamera) {
+                BarcodeScanner(onCode = onScanned, modifier = Modifier.fillMaxSize())
+            } else {
+                Txt(
+                    "Toca aquí para permitir la cámara (o actívala en Ajustes).\nTambién puedes escribir el SKU abajo.",
+                    12,
+                    color = White,
+                    family = Inter,
+                    align = TextAlign.Center,
+                    modifier = Modifier.align(Alignment.TopCenter).padding(20.dp).tap { permission.launch(Manifest.permission.CAMERA) },
+                )
+            }
             Canvas(Modifier.size(width = 250.dp, height = 180.dp)) {
                 val len = 34.dp.toPx()
                 val stroke = 3.dp.toPx()
