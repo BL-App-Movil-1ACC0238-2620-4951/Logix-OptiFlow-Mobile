@@ -16,6 +16,13 @@ interface OpticalStoreRepository {
         minRating: Double? = null,
     ): Result<OpticalStoreSearchResult>
 
+    /** Ópticas dentro de [radiusKm] alrededor del punto, ordenadas por distancia. */
+    suspend fun getNearbyOpticalStores(
+        latitude: Double,
+        longitude: Double,
+        radiusKm: Double,
+    ): Result<List<OpticalStore>>
+
     /** Califica una óptica (de 1 a 5) y devuelve su nuevo promedio. */
     suspend fun rateOpticalStore(
         opticalStoreId: UUID,
