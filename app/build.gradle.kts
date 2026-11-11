@@ -21,6 +21,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.google.services)
 }
 
 android {
@@ -91,6 +92,9 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.browser)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
 
     val composeBom = platform(libs.androidx.compose.bom)
     implementation(composeBom)
