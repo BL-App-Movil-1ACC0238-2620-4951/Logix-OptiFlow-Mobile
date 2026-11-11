@@ -13,10 +13,6 @@ data class UpdateAppointmentStatusRequest(
     val status: String,
 )
 
-data class AppointmentListResponse(
-    val value: List<AppointmentDto>?,
-)
-
 data class AppointmentDto(
     val id: UUID,
     val patientId: UUID,
