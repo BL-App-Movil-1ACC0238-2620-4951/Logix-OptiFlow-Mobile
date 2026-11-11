@@ -22,8 +22,8 @@ import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetectorOptions
 import com.google.mlkit.vision.face.FaceLandmark
 
-/** Centro de los dos ojos del rostro detectado, en píxeles de la vista de la cámara. */
-data class EyePositions(val left: Offset, val right: Offset)
+/** Centro de los dos ojos del rostro detectado, en píxeles de la vista de la cámara, y el giro de la cara en grados. */
+data class EyePositions(val left: Offset, val right: Offset, val yaw: Float = 0f)
 
 /**
  * Cámara frontal con ML Kit Face Detection (sin internet). Llama a [onEyes] en cada cuadro con
@@ -55,7 +55,7 @@ fun FaceCamera(onEyes: (EyePositions?) -> Unit, modifier: Modifier = Modifier) {
                     val left = face?.getLandmark(FaceLandmark.LEFT_EYE)?.position
                     val right = face?.getLandmark(FaceLandmark.RIGHT_EYE)?.position
                     currentOnEyes(
-                        if (left != null && right != null) EyePositions(Offset(left.x, left.y), Offset(right.x, right.y)) else null,
+                        if (left != null && right != null) EyePositions(Offset(left.x, left.y), Offset(right.x, right.y), face.headEulerAngleY) else null,
                     )
                 },
             )

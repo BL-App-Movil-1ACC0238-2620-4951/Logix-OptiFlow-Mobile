@@ -71,7 +71,7 @@ import com.logix.optiflow.presentation.patient.components.drawGlasses
 import com.logix.optiflow.presentation.patient.components.image
 import com.logix.optiflow.presentation.patient.components.priceLabel
 import com.logix.optiflow.presentation.patient.components.shapeLabel
-import com.logix.optiflow.presentation.patient.components.tryOnColor
+import com.logix.optiflow.presentation.patient.components.tryOnFinish
 import com.logix.optiflow.presentation.patient.components.tryOnStyle
 import com.logix.optiflow.presentation.search.screens.SearchField
 import com.logix.optiflow.presentation.shared.components.BellButton
@@ -426,7 +426,7 @@ fun TryOnScreen(nav: NavController, sku: String, vm: CatalogViewModel = hiltView
         onPauseOrDispose {}
     }
     var eyes by remember { mutableStateOf<EyePositions?>(null) }
-    val glassesColor = frame.tryOnColor
+    val finish = frame.tryOnFinish
 
     Column(Modifier.fillMaxSize().background(Color(0xFF14295A))) {
         Box(
@@ -442,12 +442,14 @@ fun TryOnScreen(nav: NavController, sku: String, vm: CatalogViewModel = hiltView
                     onEyes = { found ->
                         // Se suaviza el movimiento para que la montura no tiemble.
                         eyes = found?.let { new ->
-                            eyes?.let { old -> EyePositions(lerp(old.left, new.left, 0.5f), lerp(old.right, new.right, 0.5f)) } ?: new
+                            eyes?.let { old ->
+                                EyePositions(lerp(old.left, new.left, 0.5f), lerp(old.right, new.right, 0.5f), (old.yaw + new.yaw) / 2)
+                            } ?: new
                         }
                     },
                     modifier = Modifier.fillMaxSize(),
                 )
-                Canvas(Modifier.fillMaxSize()) { eyes?.let { drawGlasses(style, glassesColor, it) } }
+                Canvas(Modifier.fillMaxSize()) { eyes?.let { drawGlasses(style, finish, it) } }
             } else {
                 Txt(
                     "Toca aquí para permitir la cámara (o actívala en Ajustes).",
