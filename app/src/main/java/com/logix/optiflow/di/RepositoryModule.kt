@@ -9,6 +9,7 @@ import com.logix.optiflow.data.repository.inventory.InventoryRepositoryImpl
 import com.logix.optiflow.data.repository.report.ReportRepositoryImpl
 import com.logix.optiflow.data.repository.notification.LoyaltyAccountRepositoryImpl
 import com.logix.optiflow.data.repository.notification.NotificationRepositoryImpl
+import com.logix.optiflow.data.repository.offline.OfflineDataRepositoryImpl
 import com.logix.optiflow.data.repository.production.WorkOrderRepositoryImpl
 import com.logix.optiflow.data.repository.searchbooking.AppointmentRepositoryImpl
 import com.logix.optiflow.data.repository.searchbooking.LocationRepositoryImpl
@@ -24,6 +25,7 @@ import com.logix.optiflow.domain.repository.inventory.InventoryRepository
 import com.logix.optiflow.domain.repository.report.ReportRepository
 import com.logix.optiflow.domain.repository.notification.LoyaltyAccountRepository
 import com.logix.optiflow.domain.repository.notification.NotificationRepository
+import com.logix.optiflow.domain.repository.offline.OfflineDataRepository
 import com.logix.optiflow.domain.repository.production.WorkOrderRepository
 import com.logix.optiflow.domain.repository.searchbooking.AppointmentRepository
 import com.logix.optiflow.domain.repository.searchbooking.LocationRepository
@@ -83,4 +85,7 @@ abstract class RepositoryModule {
 
     @Binds
     abstract fun bindQuotationRepository(impl: QuotationRepositoryImpl): QuotationRepository
+
+    @Binds
+    abstract fun bindOfflineDataRepository(impl: OfflineDataRepositoryImpl): OfflineDataRepository
 }

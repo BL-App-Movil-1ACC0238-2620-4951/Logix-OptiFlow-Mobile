@@ -82,6 +82,7 @@ fun ScreenFrame(
 ) {
     Column(Modifier.fillMaxSize().background(background)) {
         topBar()
+        OfflineBanner()
         Column(Modifier.weight(1f).fillMaxWidth(), content = content)
         bottomBar()
     }

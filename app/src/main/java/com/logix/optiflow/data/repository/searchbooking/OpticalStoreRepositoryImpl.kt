@@ -2,9 +2,11 @@ package com.logix.optiflow.data.repository.searchbooking
 
 import com.logix.optiflow.data.mapper.searchbooking.toDomain
 import com.logix.optiflow.data.remote.api.searchbooking.SearchBookingApi
+import com.logix.optiflow.data.remote.dto.searchbooking.OpticalStoreDto
 import com.logix.optiflow.data.remote.dto.searchbooking.RateOpticalStoreRequest
 import com.logix.optiflow.data.remote.dto.searchbooking.SaveFavoriteStoreRequest
 import com.logix.optiflow.data.remote.safeApiCall
+import com.logix.optiflow.data.repository.offline.OfflineDataRepositoryImpl
 import com.logix.optiflow.domain.model.searchbooking.OpticalStore
 import com.logix.optiflow.domain.model.searchbooking.OpticalStoreSearchResult
 import com.logix.optiflow.domain.repository.searchbooking.OpticalStoreRepository
@@ -15,16 +17,23 @@ import javax.inject.Singleton
 @Singleton
 class OpticalStoreRepositoryImpl @Inject constructor(
     private val api: SearchBookingApi,
+    private val offline: OfflineDataRepositoryImpl,
 ) : OpticalStoreRepository {
 
     override suspend fun getOpticalStores(
         name: String?,
         address: String?,
     ): Result<List<OpticalStore>> =
-        safeApiCall {
-            api
-                .listOpticalStores(name = name, address = address)
-                .map { it.toDomain() }
+        if (name == null && address == null) {
+            // La lista completa se guarda para verse sin conexión; las búsquedas con filtro no.
+            offline.list("optical-stores", OpticalStoreDto::class.java) { api.listOpticalStores() }
+                .map { dtos -> dtos.map { it.toDomain() } }
+        } else {
+            safeApiCall {
+                api
+                    .listOpticalStores(name = name, address = address)
+                    .map { it.toDomain() }
+            }
         }
 
     override suspend fun searchOpticalStores(

@@ -41,6 +41,7 @@ import com.logix.optiflow.R
 import com.logix.optiflow.data.demo.ProductionStage
 import com.logix.optiflow.domain.model.STORE_ZONE
 import com.logix.optiflow.presentation.navigation.Routes
+import com.logix.optiflow.presentation.shared.OfflineViewModel
 import com.logix.optiflow.presentation.shared.components.HSpace
 import com.logix.optiflow.presentation.shared.components.LIcon
 import com.logix.optiflow.presentation.shared.components.StaffBackTopBar
@@ -568,8 +569,15 @@ fun ProductionScreen(nav: NavController) {
             VSpace(10.dp)
         }
         if (state.productionFromApi) {
+            val offline by hiltViewModel<OfflineViewModel>().savedDataFrom.collectAsState()
             VSpace(6.dp)
-            Txt("Órdenes sincronizadas con el backend.", 10, color = Slate400, family = Inter)
+            Txt(
+                // US10: sin conexión el tablero guardado es de solo lectura.
+                if (offline != null) "Tablero guardado en solo lectura: para cambiar una orden necesitas conexión." else "Órdenes sincronizadas con el backend.",
+                10,
+                color = Slate400,
+                family = Inter,
+            )
         }
         VSpace(24.dp)
     }

@@ -4,10 +4,12 @@ import com.logix.optiflow.data.local.PatientSessionStore
 import com.logix.optiflow.data.mapper.searchbooking.toDomain
 import com.logix.optiflow.data.remote.api.searchbooking.SearchBookingApi
 import com.logix.optiflow.data.remote.dto.searchbooking.BookAppointmentRequest
+import com.logix.optiflow.data.remote.dto.searchbooking.AppointmentDto
 import com.logix.optiflow.data.remote.dto.searchbooking.PublishTimeSlotsRequest
 import com.logix.optiflow.data.remote.dto.searchbooking.SlotRequest
 import com.logix.optiflow.data.remote.dto.searchbooking.UpdateAppointmentStatusRequest
 import com.logix.optiflow.data.remote.safeApiCall
+import com.logix.optiflow.data.repository.offline.OfflineDataRepositoryImpl
 import com.logix.optiflow.domain.model.searchbooking.Appointment
 import com.logix.optiflow.domain.model.searchbooking.TimeSlot
 import com.logix.optiflow.domain.repository.searchbooking.AppointmentRepository
@@ -21,6 +23,7 @@ import javax.inject.Singleton
 class AppointmentRepositoryImpl @Inject constructor(
     private val api: SearchBookingApi,
     private val sessionStore: PatientSessionStore,
+    private val offline: OfflineDataRepositoryImpl,
 ) : AppointmentRepository {
 
     override suspend fun getTimeSlots(opticalStoreId: UUID): Result<List<TimeSlot>> =
@@ -68,9 +71,8 @@ class AppointmentRepositoryImpl @Inject constructor(
         }
 
     override suspend fun getPatientAppointments(patientId: UUID): Result<List<Appointment>> =
-        safeApiCall {
-            api.getPatientAppointments(patientId).map { it.toDomain() }
-        }
+        offline.list("appointments/$patientId", AppointmentDto::class.java) { api.getPatientAppointments(patientId) }
+            .map { dtos -> dtos.map { it.toDomain() } }
 
     override suspend fun getStoreAgenda(opticalStoreId: UUID, date: LocalDate): Result<List<Appointment>> =
         safeApiCall {

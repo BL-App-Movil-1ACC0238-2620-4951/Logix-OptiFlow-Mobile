@@ -4,8 +4,10 @@ import com.logix.optiflow.data.mapper.notification.toDomain
 import com.logix.optiflow.data.push.PushTokenProvider
 import com.logix.optiflow.data.remote.api.notification.NotificationApi
 import com.logix.optiflow.data.remote.dto.notification.AnswerSatisfactionSurveyRequest
+import com.logix.optiflow.data.remote.dto.notification.NotificationDto
 import com.logix.optiflow.data.remote.dto.notification.RegisterDeviceTokenRequest
 import com.logix.optiflow.data.remote.safeApiCall
+import com.logix.optiflow.data.repository.offline.OfflineDataRepositoryImpl
 import com.logix.optiflow.domain.model.notification.NotificationItem
 import com.logix.optiflow.domain.repository.notification.NotificationRepository
 import java.util.UUID
@@ -17,10 +19,12 @@ import retrofit2.HttpException
 class NotificationRepositoryImpl @Inject constructor(
     private val api: NotificationApi,
     private val pushTokenProvider: PushTokenProvider,
+    private val offline: OfflineDataRepositoryImpl,
 ) : NotificationRepository {
 
     override suspend fun loadForPatient(patientId: UUID): Result<List<NotificationItem>> =
-        safeApiCall { api.getPatientNotifications(patientId).map { it.toDomain() } }
+        offline.list("notifications/$patientId", NotificationDto::class.java) { api.getPatientNotifications(patientId) }
+            .map { dtos -> dtos.map { it.toDomain() } }
 
     override suspend fun markRead(notificationId: UUID): Result<Unit> =
         safeApiCall {
