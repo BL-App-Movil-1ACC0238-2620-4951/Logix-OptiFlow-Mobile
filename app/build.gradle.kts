@@ -16,6 +16,12 @@ fun quotedApiBaseUrl(propertyKey: String, defaultUrl: String): String {
     return "\"$escaped\""
 }
 
+// Firma del release: local.properties indica dónde está el archivo con el keystore (fuera del repo).
+val releaseSigning = localProperties.getProperty("release.signing.properties")
+    ?.let { file(it) }
+    ?.takeIf { it.exists() }
+    ?.let { file -> Properties().apply { file.inputStream().use { load(it) } } }
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -64,8 +70,20 @@ android {
         }
     }
 
+    signingConfigs {
+        if (releaseSigning != null) {
+            create("release") {
+                storeFile = file(releaseSigning.getProperty("storeFile"))
+                storePassword = releaseSigning.getProperty("storePassword")
+                keyAlias = releaseSigning.getProperty("keyAlias")
+                keyPassword = releaseSigning.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
