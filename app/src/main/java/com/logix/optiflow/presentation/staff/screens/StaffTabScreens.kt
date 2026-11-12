@@ -40,6 +40,7 @@ import com.logix.optiflow.data.demo.AgendaStatus
 import com.logix.optiflow.data.demo.ProductionStage
 import com.logix.optiflow.domain.model.STORE_ZONE
 import com.logix.optiflow.presentation.navigation.Routes
+import com.logix.optiflow.presentation.patient.screens.InfoTopic
 import com.logix.optiflow.presentation.navigation.switchRoot
 import com.logix.optiflow.presentation.search.screens.SearchField
 import com.logix.optiflow.presentation.shared.components.Divider
@@ -242,8 +243,9 @@ fun StaffDashboardScreen(nav: NavController) {
 }
 
 @Composable
-private fun StatCard(icon: Int, value: String, title: String, subtitle: String, modifier: Modifier, onClick: () -> Unit) {
-    Column(modifier.height(124.dp).staffCard().tap(onClick).padding(14.dp)) {
+private fun StatCard(icon: Int, value: String, title: String, subtitle: String, modifier: Modifier, onClick: (() -> Unit)? = null) {
+    // Sin onClick la tarjeta solo muestra el dato y no responde al toque.
+    Column(modifier.height(124.dp).staffCard().then(if (onClick != null) Modifier.tap(onClick) else Modifier).padding(14.dp)) {
         Row(verticalAlignment = Alignment.Top) {
             StaffIconTile(icon)
             Spacer(Modifier.weight(1f))
@@ -302,7 +304,7 @@ fun StaffAgendaScreen(nav: NavController) {
                 Column(Modifier.weight(1f)) {
                     Txt(state.agendaDateLabel, 9, color = Slate300, family = Inter, letterSpacing = 1.2.sp)
                     VSpace(8.dp)
-                    Txt("${agenda.size} pacientes" + if (state.isToday) " hoy" else "", 20, color = White, family = Inter)
+                    Txt("${agenda.size} " + (if (agenda.size == 1) "paciente" else "pacientes") + if (state.isToday) " hoy" else "", 20, color = White, family = Inter)
                     VSpace(8.dp)
                     Txt("$done consultas completadas · ${waiting.size} en sala de espera", 11, color = Slate300, family = Inter)
                 }
@@ -491,7 +493,7 @@ fun StaffPatientsScreen(nav: NavController) {
                 StaffInitials(patient.initials, size = 52.dp, background = tints[index % tints.size], fontSize = 14)
                 HSpace(16.dp)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Txt(patient.name, 14, color = StaffInk, family = Inter)
+                    Txt(patient.fullName, 14, color = StaffInk, family = Inter)
                     Txt(patient.email.ifBlank { patient.rut }, 11, color = Slate400, family = Inter)
                     Txt(patient.note, 11, color = Slate400, family = Inter)
                 }
@@ -554,7 +556,7 @@ fun StaffInventoryScreen(nav: NavController) {
                     nav.navigate(Routes.S_PRODUCTION)
                 }
             } else {
-                StatCard(R.drawable.lucide_ic_briefcase, "${state.rows.count { (it.stock?.quantity ?: 0) == 0 }}", "Sin stock", "modelos agotados aquí", Modifier.weight(1f)) {}
+                StatCard(R.drawable.lucide_ic_briefcase, "${state.rows.count { (it.stock?.quantity ?: 0) == 0 }}", "Sin stock", "modelos agotados aquí", Modifier.weight(1f))
             }
         }
         VSpace(12.dp)
@@ -680,7 +682,9 @@ fun StaffMoreScreen(nav: NavController) {
                 ToolItem(R.drawable.lucide_ic_calendar, "Horarios de atención", "Abrir turnos para reservar") { nav.navigate(Routes.S_SCHEDULE) }
                     .takeIf { role.can(StaffFeature.MANAGEMENT) },
                 ToolItem(R.drawable.lucide_ic_settings, "Configuración y permisos", null) { nav.navigate(Routes.P_SETTINGS + "?staff=true") },
-                ToolItem(R.drawable.lucide_ic_circle_question_mark, "Ayuda y documentación", null) {},
+                ToolItem(R.drawable.lucide_ic_circle_question_mark, "Ayuda y documentación", null) {
+                    nav.navigate(Routes.info(InfoTopic.HELP.name, staff = true))
+                },
                 ToolItem(R.drawable.lucide_ic_user, "Cerrar sesión", null) { vm.clearSession { nav.switchRoot(Routes.AUTH) } },
             )
         VSpace(26.dp)

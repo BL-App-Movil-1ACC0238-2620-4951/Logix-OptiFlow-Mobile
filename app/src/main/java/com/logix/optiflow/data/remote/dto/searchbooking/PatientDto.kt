@@ -20,6 +20,13 @@ data class RegisterPatientRequest(
     val birthDate: String? = null,
 )
 
+/** Datos que el paciente puede cambiar de su perfil; el correo y la contraseña no cambian. */
+data class UpdatePatientProfileRequest(
+    val name: String,
+    val phone: String,
+    val birthDate: String? = null,
+)
+
 data class LoginRequest(
     val email: String,
     val password: String,

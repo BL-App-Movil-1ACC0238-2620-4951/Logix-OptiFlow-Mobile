@@ -7,6 +7,7 @@ import com.logix.optiflow.data.remote.AuthTokenHolder
 import com.logix.optiflow.data.remote.api.searchbooking.SearchBookingApi
 import com.logix.optiflow.data.remote.dto.searchbooking.LoginRequest
 import com.logix.optiflow.data.remote.dto.searchbooking.RegisterPatientRequest
+import com.logix.optiflow.data.remote.dto.searchbooking.UpdatePatientProfileRequest
 import com.logix.optiflow.data.remote.safeApiCall
 import com.logix.optiflow.data.repository.offline.OfflineDataRepositoryImpl
 import com.logix.optiflow.domain.model.searchbooking.Patient
@@ -106,6 +107,29 @@ class PatientRepositoryImpl @Inject constructor(
 
     override suspend fun getPatient(id: UUID): Result<Patient> =
         safeApiCall { api.getPatient(id).toDomain() }
+
+    override suspend fun updateProfile(
+        name: String,
+        phone: String,
+        birthDate: String?,
+    ): Result<Patient> =
+        safeApiCall {
+            val session = checkNotNull(sessionStore.read()) { "Inicia sesión para editar tu perfil." }
+            val patient =
+                api.updatePatientProfile(
+                    session.patientId,
+                    UpdatePatientProfileRequest(name = name, phone = phone, birthDate = birthDate),
+                ).toDomain()
+            // El nombre de la sesión es el que muestran Inicio y Mi Perfil.
+            sessionStore.save(
+                patientId = session.patientId,
+                name = patient.name,
+                email = session.email,
+                token = session.token,
+                role = session.role,
+            )
+            patient
+        }
 
     override suspend fun getSession(): PatientSession? =
         sessionStore.read().also { AuthTokenHolder.token = it?.token }

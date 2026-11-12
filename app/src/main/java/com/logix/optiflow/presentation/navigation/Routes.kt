@@ -17,7 +17,6 @@ object Routes {
     const val P_FRAME = "p/frame/{id}"
     const val P_TRYON = "p/tryon/{id}"
     const val P_PRESCRIPTION = "p/prescription"
-    const val P_PRESCRIPTION_EDIT = "p/prescription/edit"
     const val P_PRESCRIPTIONS = "p/prescriptions"
     const val P_PRESCRIPTION_DETAIL = "p/prescriptions/{id}"
     const val P_APPOINTMENTS = "p/appointments"
@@ -29,6 +28,8 @@ object Routes {
     const val P_PROFILE = "p/profile"
     const val P_HISTORY = "p/history"
     const val P_SETTINGS = "p/settings"
+    const val P_EDIT_PROFILE = "p/profile/edit"
+    const val P_INFO = "p/info/{topic}?staff={staff}"
     const val P_PURCHASES = "p/purchases"
 
     fun frame(id: String) = "p/frame/$id"
@@ -38,6 +39,7 @@ object Routes {
     fun book(storeId: UUID? = null) = if (storeId == null) "p/book" else "p/book?storeId=$storeId"
     fun order(id: String) = "p/order/$id"
     fun prescription(recordId: String) = "p/prescriptions/$recordId"
+    fun info(topic: String, staff: Boolean = false) = "p/info/$topic?staff=$staff"
 
     // Personal clínico
     const val S_HOME = "s/home"
