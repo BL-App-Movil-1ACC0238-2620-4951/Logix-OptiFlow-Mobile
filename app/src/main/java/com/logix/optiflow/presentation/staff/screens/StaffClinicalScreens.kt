@@ -420,6 +420,21 @@ fun StaffPatientRecordScreen(nav: NavController, id: String) {
                 }
                 LIcon(R.drawable.lucide_ic_chevron_right, StaffInk, 20.dp)
             }
+            // Quien agenda (asesor, optometrista o admin) también puede cancelar.
+            if (state.role.can(StaffFeature.AGENDA)) {
+                VSpace(4.dp)
+                Box(
+                    Modifier.fillMaxWidth().tap {
+                        recordVm.cancelNextAppointment { day, error ->
+                            if (day != null) vm.refreshAgenda(day)
+                            Toast.makeText(context, error ?: "Cita cancelada.", Toast.LENGTH_SHORT).show()
+                        }
+                    }.padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Txt(if (record.isCancelling) "Cancelando..." else "Cancelar cita", 13, color = StaffAccent, family = Inter)
+                }
+            }
         }
         VSpace(24.dp)
         val lensOrder = record.lensOrder

@@ -63,7 +63,6 @@ import com.logix.optiflow.presentation.theme.White
 private val Ink = Color(0xFF111827)
 private val TableBorder = Color(0xFFCBD5E1)
 private val Soft = Color(0xFFF4F6FD)
-private val DpBox = Color(0xFFE7EEFC)
 private val ChipBg = Color(0xFFDCE6FB)
 private val Teal = Color(0xFF0F766E)
 
@@ -218,22 +217,6 @@ fun PrescriptionScreen(nav: NavController, recordId: String? = null) {
                 }
                 VSpace(14.dp)
                 PrescriptionTable(values)
-                VSpace(14.dp)
-                Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(DpBox).padding(horizontal = 14.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    LIcon(R.drawable.lucide_ic_eye, DeepNavy, 18.dp)
-                    HSpace(10.dp)
-                    Txt("Distancia pupilar (DP)", 13, color = DeepNavy, modifier = Modifier.weight(1f))
-                    Column(horizontalAlignment = Alignment.End) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Txt(rx.pupillaryDistance, 16, weight = FontWeight.Bold, color = DeepNavy)
-                            Txt(" mm", 16, weight = FontWeight.Bold, color = DeepNavy)
-                        }
-                        Txt("31 / 31 mm", 10, color = Slate500)
-                    }
-                }
                 VSpace(16.dp)
                 SectionCaption("DIAGNÓSTICOS ASOCIADOS")
                 VSpace(10.dp)

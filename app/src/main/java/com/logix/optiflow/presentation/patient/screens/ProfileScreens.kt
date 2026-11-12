@@ -35,7 +35,6 @@ import com.logix.optiflow.R
 import com.logix.optiflow.presentation.navigation.Routes
 import com.logix.optiflow.presentation.navigation.switchRoot
 import com.logix.optiflow.presentation.patient.PatientAccountViewModel
-import com.logix.optiflow.presentation.patient.SettingsViewModel
 import com.logix.optiflow.presentation.patient.components.PatientScreen
 import com.logix.optiflow.presentation.patient.components.patientViewModel
 import com.logix.optiflow.presentation.shared.components.Divider
@@ -315,8 +314,7 @@ private fun prettyDate(upper: String): String {
 }
 
 @Composable
-fun SettingsScreen(nav: NavController, staff: Boolean = false, settingsVm: SettingsViewModel = hiltViewModel()) {
-    val reminders by settingsVm.checkupReminders.collectAsState()
+fun SettingsScreen(nav: NavController, staff: Boolean = false) {
 
     val content: @Composable ColumnScope.() -> Unit = {
         Column(
@@ -330,16 +328,6 @@ fun SettingsScreen(nav: NavController, staff: Boolean = false, settingsVm: Setti
             MenuGroup {
                 MenuRow(R.drawable.lucide_ic_bell, "Notificaciones", "Citas, pedidos y recordatorios") {
                     if (!staff) nav.navigate(Routes.P_NOTIFICATIONS) else nav.navigate(Routes.S_ALERTS)
-                }
-                if (!staff) {
-                    Divider(Lavender)
-                    Row(Modifier.fillMaxWidth().tap(settingsVm::toggleCheckupReminders).padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Txt("Recordatorios de control", 14, weight = FontWeight.Bold, color = DeepNavy)
-                            Txt("Avisos preventivos de salud visual", 12, color = Slate500)
-                        }
-                        Toggle(reminders)
-                    }
                 }
                 Divider(Lavender)
                 MenuRow(R.drawable.lucide_ic_lock, "Privacidad y seguridad", null) { nav.navigate(Routes.info(InfoTopic.PRIVACY.name, staff)) }
@@ -378,19 +366,5 @@ fun SettingsScreen(nav: NavController, staff: Boolean = false, settingsVm: Setti
             topBar = { PatientLightTopBar("Configuración", onBack = { nav.popBackStack() }) },
             content = content,
         )
-    }
-}
-
-@Composable
-private fun Toggle(checked: Boolean) {
-    Box(
-        Modifier
-            .size(width = 48.dp, height = 28.dp)
-            .clip(CircleShape)
-            .background(if (checked) PatientHeader else Color(0xFFE4E9FB))
-            .padding(3.dp),
-        contentAlignment = if (checked) Alignment.CenterEnd else Alignment.CenterStart,
-    ) {
-        Box(Modifier.size(22.dp).shadow(2.dp, CircleShape).clip(CircleShape).background(White))
     }
 }
