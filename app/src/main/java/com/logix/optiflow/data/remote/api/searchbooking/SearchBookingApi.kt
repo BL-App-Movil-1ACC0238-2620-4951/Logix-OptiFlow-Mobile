@@ -19,6 +19,7 @@ import com.logix.optiflow.data.remote.dto.searchbooking.StaffMemberDto
 import com.logix.optiflow.data.remote.dto.searchbooking.StoreRatingDto
 import com.logix.optiflow.data.remote.dto.searchbooking.TimeSlotDto
 import com.logix.optiflow.data.remote.dto.searchbooking.UpdateAppointmentStatusRequest
+import com.logix.optiflow.data.remote.dto.searchbooking.UpdatePatientProfileRequest
 import com.logix.optiflow.data.remote.dto.searchbooking.UpdateStaffMemberStatusRequest
 import java.util.UUID
 import retrofit2.http.Body
@@ -82,6 +83,12 @@ interface SearchBookingApi {
     @GET("patients/{patientId}")
     suspend fun getPatient(
         @Path("patientId") patientId: UUID,
+    ): PatientDto
+
+    @PATCH("patients/{patientId}")
+    suspend fun updatePatientProfile(
+        @Path("patientId") patientId: UUID,
+        @Body request: UpdatePatientProfileRequest,
     ): PatientDto
 
     @POST("appointments")

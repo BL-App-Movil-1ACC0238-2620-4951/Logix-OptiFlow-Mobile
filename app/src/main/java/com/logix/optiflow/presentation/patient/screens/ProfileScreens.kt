@@ -20,9 +20,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,6 +35,7 @@ import com.logix.optiflow.R
 import com.logix.optiflow.presentation.navigation.Routes
 import com.logix.optiflow.presentation.navigation.switchRoot
 import com.logix.optiflow.presentation.patient.PatientAccountViewModel
+import com.logix.optiflow.presentation.patient.SettingsViewModel
 import com.logix.optiflow.presentation.patient.components.PatientScreen
 import com.logix.optiflow.presentation.patient.components.patientViewModel
 import com.logix.optiflow.presentation.shared.components.Divider
@@ -109,6 +107,7 @@ fun ProfileScreen(nav: NavController, accountVm: PatientAccountViewModel = hiltV
                         .shadow(2.dp, CircleShape)
                         .clip(CircleShape)
                         .background(White)
+                        .tap { nav.navigate(Routes.P_EDIT_PROFILE) }
                         .padding(horizontal = 24.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -139,7 +138,7 @@ fun ProfileScreen(nav: NavController, accountVm: PatientAccountViewModel = hiltV
                 Divider(Lavender)
                 MenuRow(R.drawable.lucide_ic_settings, "Configuración", null) { nav.navigate(Routes.P_SETTINGS) }
                 Divider(Lavender)
-                MenuRow(R.drawable.lucide_ic_circle_question_mark, "Ayuda y soporte", null) { nav.navigate(Routes.P_SETTINGS) }
+                MenuRow(R.drawable.lucide_ic_circle_question_mark, "Ayuda y soporte", null) { nav.navigate(Routes.info(InfoTopic.HELP.name)) }
             }
             VSpace(18.dp)
             SolidButton(
@@ -316,8 +315,8 @@ private fun prettyDate(upper: String): String {
 }
 
 @Composable
-fun SettingsScreen(nav: NavController, staff: Boolean = false) {
-    var reminders by rememberSaveable { mutableStateOf(false) }
+fun SettingsScreen(nav: NavController, staff: Boolean = false, settingsVm: SettingsViewModel = hiltViewModel()) {
+    val reminders by settingsVm.checkupReminders.collectAsState()
 
     val content: @Composable ColumnScope.() -> Unit = {
         Column(
@@ -332,26 +331,29 @@ fun SettingsScreen(nav: NavController, staff: Boolean = false) {
                 MenuRow(R.drawable.lucide_ic_bell, "Notificaciones", "Citas, pedidos y recordatorios") {
                     if (!staff) nav.navigate(Routes.P_NOTIFICATIONS) else nav.navigate(Routes.S_ALERTS)
                 }
-                Divider(Lavender)
-                Row(Modifier.fillMaxWidth().tap { reminders = !reminders }.padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Txt("Recordatorios de control", 14, weight = FontWeight.Bold, color = DeepNavy)
-                        Txt("Avisos preventivos de salud visual", 12, color = Slate500)
+                if (!staff) {
+                    Divider(Lavender)
+                    Row(Modifier.fillMaxWidth().tap(settingsVm::toggleCheckupReminders).padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Txt("Recordatorios de control", 14, weight = FontWeight.Bold, color = DeepNavy)
+                            Txt("Avisos preventivos de salud visual", 12, color = Slate500)
+                        }
+                        Toggle(reminders)
                     }
-                    Toggle(reminders)
                 }
                 Divider(Lavender)
-                MenuRow(R.drawable.lucide_ic_lock, "Privacidad y seguridad", null) {}
+                MenuRow(R.drawable.lucide_ic_lock, "Privacidad y seguridad", null) { nav.navigate(Routes.info(InfoTopic.PRIVACY.name, staff)) }
                 Divider(Lavender)
-                MenuRow(R.drawable.lucide_ic_circle_question_mark, "Ayuda y documentación", null) {}
+                MenuRow(R.drawable.lucide_ic_circle_question_mark, "Ayuda y documentación", null) { nav.navigate(Routes.info(InfoTopic.HELP.name, staff)) }
             }
             VSpace(22.dp)
             Txt("Aplicación", 15, weight = FontWeight.Bold, color = DeepNavy, modifier = Modifier.padding(start = 4.dp))
             VSpace(10.dp)
             MenuGroup {
-                MenuRow(R.drawable.lucide_ic_settings, "Idioma", "Español") {}
+                // La app solo está en español: se muestra como dato, sin flecha.
+                MenuRow(R.drawable.lucide_ic_settings, "Idioma", "Español", trailing = {}) {}
                 Divider(Lavender)
-                MenuRow(R.drawable.lucide_ic_file_text, "Términos y privacidad", null) {}
+                MenuRow(R.drawable.lucide_ic_file_text, "Términos y privacidad", null) { nav.navigate(Routes.info(InfoTopic.TERMS.name, staff)) }
             }
             VSpace(36.dp)
             Txt(

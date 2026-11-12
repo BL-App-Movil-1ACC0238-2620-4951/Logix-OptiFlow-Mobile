@@ -21,6 +21,9 @@ import com.logix.optiflow.presentation.auth.UserRole
 import com.logix.optiflow.presentation.auth.screens.AuthScreen
 import com.logix.optiflow.presentation.booking.screens.BookingScreen
 import com.logix.optiflow.presentation.notifications.screens.NotificationsScreen
+import com.logix.optiflow.presentation.patient.screens.EditProfileScreen
+import com.logix.optiflow.presentation.patient.screens.InfoScreen
+import com.logix.optiflow.presentation.patient.screens.InfoTopic
 import com.logix.optiflow.presentation.patient.screens.AppointmentDetailScreen
 import com.logix.optiflow.presentation.patient.screens.CatalogScreen
 import com.logix.optiflow.presentation.patient.screens.ClinicalHistoryScreen
@@ -114,10 +117,9 @@ fun OptiFlowNavHost(
         composable(Routes.P_CATALOG) { CatalogScreen(navController) }
         composable(Routes.P_FRAME) { FrameDetailScreen(navController, it.arg("id")) }
         composable(Routes.P_TRYON) { TryOnScreen(navController, it.arg("id")) }
-        composable(Routes.P_PRESCRIPTION) { PrescriptionScreen(navController, editable = false) }
-        composable(Routes.P_PRESCRIPTION_EDIT) { PrescriptionScreen(navController, editable = true) }
+        composable(Routes.P_PRESCRIPTION) { PrescriptionScreen(navController) }
         composable(Routes.P_PRESCRIPTIONS) { PrescriptionListScreen(navController) }
-        composable(Routes.P_PRESCRIPTION_DETAIL) { PrescriptionScreen(navController, editable = false, recordId = it.arg("id")) }
+        composable(Routes.P_PRESCRIPTION_DETAIL) { PrescriptionScreen(navController, recordId = it.arg("id")) }
         composable(Routes.P_APPOINTMENTS) { MyAppointmentsScreen(navController) }
         composable(Routes.P_APPOINTMENT) { AppointmentDetailScreen(navController, it.arg("id")) }
         composable(Routes.P_RESCHEDULE) { RescheduleScreen(navController, it.arg("id")) }
@@ -135,6 +137,24 @@ fun OptiFlowNavHost(
         composable(Routes.P_ORDERS) { MyOrdersScreen(navController) }
         composable(Routes.P_ORDER) { OrderTrackingScreen(navController, it.arg("id")) }
         composable(Routes.P_PROFILE) { ProfileScreen(navController) }
+        composable(Routes.P_EDIT_PROFILE) { EditProfileScreen(navController) }
+        composable(
+            route = Routes.P_INFO,
+            arguments =
+                listOf(
+                    navArgument("topic") { type = NavType.StringType },
+                    navArgument("staff") {
+                        type = NavType.BoolType
+                        defaultValue = false
+                    },
+                ),
+        ) { entry ->
+            InfoScreen(
+                navController,
+                InfoTopic.from(entry.arguments?.getString("topic")),
+                staff = entry.arguments?.getBoolean("staff") == true,
+            )
+        }
         composable(Routes.P_HISTORY) { ClinicalHistoryScreen(navController) }
         composable(Routes.P_PURCHASES) { PurchasesScreen(navController) }
         composable(

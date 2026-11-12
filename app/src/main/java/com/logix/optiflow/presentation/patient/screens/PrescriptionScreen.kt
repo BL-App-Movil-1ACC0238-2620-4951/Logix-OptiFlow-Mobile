@@ -1,6 +1,5 @@
 package com.logix.optiflow.presentation.patient.screens
 
-import android.widget.Toast
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -20,17 +19,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,26 +32,19 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.logix.optiflow.R
 import com.logix.optiflow.presentation.navigation.Routes
-import com.logix.optiflow.presentation.patient.PrescriptionUi
 import com.logix.optiflow.presentation.patient.components.PatientScreen
 import com.logix.optiflow.presentation.patient.components.patientViewModel
 import com.logix.optiflow.presentation.shared.components.HSpace
 import com.logix.optiflow.presentation.shared.components.IconTile
 import com.logix.optiflow.presentation.shared.components.LIcon
 import com.logix.optiflow.presentation.shared.components.PatientDarkTopBar
-import com.logix.optiflow.presentation.shared.components.SolidButton
 import com.logix.optiflow.presentation.shared.components.Txt
 import com.logix.optiflow.presentation.shared.components.VSpace
 import com.logix.optiflow.presentation.shared.components.card
@@ -66,7 +52,6 @@ import com.logix.optiflow.presentation.shared.components.tap
 import com.logix.optiflow.presentation.theme.DeepNavy
 import com.logix.optiflow.presentation.theme.Electric
 import com.logix.optiflow.presentation.theme.InfoBanner
-import com.logix.optiflow.presentation.theme.Jakarta
 import com.logix.optiflow.presentation.theme.Lavender
 import com.logix.optiflow.presentation.theme.NavyBlue
 import com.logix.optiflow.presentation.theme.SkyTint
@@ -82,18 +67,6 @@ private val DpBox = Color(0xFFE7EEFC)
 private val ChipBg = Color(0xFFDCE6FB)
 private val Teal = Color(0xFF0F766E)
 
-private fun blankPrescription(name: String): PrescriptionUi =
-    PrescriptionUi(
-        patientName = name,
-        date = "—",
-        issuedLabel = "",
-        sphereOD = "", cylinderOD = "", axisOD = "", additionOD = "",
-        sphereOI = "", cylinderOI = "", axisOI = "", additionOI = "",
-        pupillaryDistance = "",
-        diagnoses = emptyList(),
-        observations = "",
-    )
-
 @Composable
 private fun NoPrescription(nav: NavController) {
     PatientScreen(
@@ -105,8 +78,6 @@ private fun NoPrescription(nav: NavController) {
             Txt("Aún no tienes una receta registrada.", 16, weight = FontWeight.Bold, color = NavyBlue)
             VSpace(8.dp)
             Txt("Aparecerá aquí después de tu evaluación visual en la óptica.", 13, color = Slate500)
-            VSpace(20.dp)
-            SolidButton("Ingresar mi receta", onClick = { nav.navigate(Routes.P_PRESCRIPTION_EDIT) })
         }
     }
 }
@@ -173,10 +144,9 @@ private fun LoadingPrescription(nav: NavController, error: String?, onRetry: () 
 }
 
 @Composable
-fun PrescriptionScreen(nav: NavController, editable: Boolean, recordId: String? = null) {
+fun PrescriptionScreen(nav: NavController, recordId: String? = null) {
     val vm = patientViewModel()
     val state by vm.uiState.collectAsState()
-    val context = LocalContext.current
     if (recordId != null) {
         LaunchedEffect(recordId) { vm.loadPrescription(recordId) }
     }
@@ -186,23 +156,16 @@ fun PrescriptionScreen(nav: NavController, editable: Boolean, recordId: String? 
         return
     }
     val isCurrent = recordId == null || state.prescriptions.firstOrNull()?.recordId == recordId
-    if (saved == null && !editable) {
+    // La receta la registra el optómetra en la óptica; el paciente solo la consulta.
+    val rx = saved ?: run {
         NoPrescription(nav)
         return
     }
-    val rx = saved ?: blankPrescription(state.displayName)
-
     val values =
-        remember(editable) {
-            mutableStateListOf(
-                *if (editable) Array(8) { "" } else arrayOf(
-                    rx.sphereOD, rx.cylinderOD, rx.axisOD, rx.additionOD,
-                    rx.sphereOI, rx.cylinderOI, rx.axisOI, rx.additionOI,
-                ),
-            )
-        }
-    var pd by remember(editable) { mutableStateOf(if (editable) "" else rx.pupillaryDistance) }
-    var notes by remember(editable) { mutableStateOf(if (editable) "" else rx.observations) }
+        listOf(
+            rx.sphereOD, rx.cylinderOD, rx.axisOD, rx.additionOD,
+            rx.sphereOI, rx.cylinderOI, rx.axisOI, rx.additionOI,
+        )
 
     PatientScreen(
         nav = nav,
@@ -254,7 +217,7 @@ fun PrescriptionScreen(nav: NavController, editable: Boolean, recordId: String? 
                     }
                 }
                 VSpace(14.dp)
-                PrescriptionTable(values, editable)
+                PrescriptionTable(values)
                 VSpace(14.dp)
                 Row(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(DpBox).padding(horizontal = 14.dp, vertical = 12.dp),
@@ -265,11 +228,7 @@ fun PrescriptionScreen(nav: NavController, editable: Boolean, recordId: String? 
                     Txt("Distancia pupilar (DP)", 13, color = DeepNavy, modifier = Modifier.weight(1f))
                     Column(horizontalAlignment = Alignment.End) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (editable) {
-                                CellInput(pd, { pd = it }, "0", 16, Modifier.width(40.dp), TextAlign.End, FontWeight.Bold)
-                            } else {
-                                Txt(pd, 16, weight = FontWeight.Bold, color = DeepNavy)
-                            }
+                            Txt(rx.pupillaryDistance, 16, weight = FontWeight.Bold, color = DeepNavy)
                             Txt(" mm", 16, weight = FontWeight.Bold, color = DeepNavy)
                         }
                         Txt("31 / 31 mm", 10, color = Slate500)
@@ -280,25 +239,13 @@ fun PrescriptionScreen(nav: NavController, editable: Boolean, recordId: String? 
                 VSpace(10.dp)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     rx.diagnoses.forEach { DiagnosisChip(it) }
-                    if (editable) {
-                        Box(
-                            Modifier.height(30.dp).clip(CircleShape).background(ChipBg).padding(horizontal = 22.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            LIcon(R.drawable.lucide_ic_plus, Electric, 16.dp)
-                        }
-                    }
                 }
                 VSpace(12.dp)
                 ThinDivider()
                 VSpace(10.dp)
                 SectionCaption("OBSERVACIONES E INDICACIÓN")
                 VSpace(8.dp)
-                if (editable) {
-                    CellInput(notes, { notes = it }, "Escriba observación", 13, Modifier.fillMaxWidth(), TextAlign.Start, FontWeight.Normal, singleLine = false)
-                } else {
-                    Txt(notes, 13, color = Color(0xFF374151), lineHeight = 19.sp)
-                }
+                Txt(rx.observations, 13, color = Color(0xFF374151), lineHeight = 19.sp)
                 VSpace(14.dp)
                 Canvas(Modifier.fillMaxWidth().height(1.dp)) {
                     drawLine(
@@ -329,51 +276,12 @@ fun PrescriptionScreen(nav: NavController, editable: Boolean, recordId: String? 
                 Txt("Tus datos de salud se almacenan de forma segura.", 12, color = Slate500)
             }
             VSpace(16.dp)
-            if (editable) {
-                SolidButton(
-                    "Guardar",
-                    onClick = {
-                        vm.savePrescription(
-                            rx.copy(
-                                sphereOD = values[0].ifBlank { "0.00" },
-                                cylinderOD = values[1].ifBlank { "0.00" },
-                                axisOD = values[2].ifBlank { "0" }.let { if (it.endsWith("°")) it else "$it°" },
-                                additionOD = values[3].ifBlank { "0.00" },
-                                sphereOI = values[4].ifBlank { "0.00" },
-                                cylinderOI = values[5].ifBlank { "0.00" },
-                                axisOI = values[6].ifBlank { "0" }.let { if (it.endsWith("°")) it else "$it°" },
-                                additionOI = values[7].ifBlank { "0.00" },
-                                pupillaryDistance = pd.ifBlank { "0" },
-                                observations = notes,
-                            ),
-                        )
-                        Toast.makeText(context, "Receta actualizada", Toast.LENGTH_SHORT).show()
-                        nav.popBackStack()
-                    },
-                    height = 48.dp,
-                    radius = 12.dp,
-                    fontSize = 16,
-                )
-            } else {
-                SolidButton(
-                    "Actualizar receta",
-                    onClick = { nav.navigate(Routes.P_PRESCRIPTION_EDIT) },
-                    background = White,
-                    contentColor = Electric,
-                    border = SkyTint,
-                    height = 48.dp,
-                    radius = 12.dp,
-                    fontSize = 16,
-                    leadingIcon = R.drawable.lucide_ic_refresh_cw,
-                )
-            }
-            VSpace(16.dp)
         }
     }
 }
 
 @Composable
-private fun PrescriptionTable(values: MutableList<String>, editable: Boolean) {
+private fun PrescriptionTable(values: List<String>) {
     val shape = RoundedCornerShape(12.dp)
     Column(Modifier.fillMaxWidth().clip(shape).border(1.dp, TableBorder, shape)) {
         Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
@@ -394,22 +302,18 @@ private fun PrescriptionTable(values: MutableList<String>, editable: Boolean) {
                     }
                 }
                 listOf(0 to 1f, 1 to 1f, 2 to 0.8f).forEach { (col, w) ->
-                    Cell(w) { ValueCell(values, row * 4 + col, editable, if (col == 2) "0°" else "0.00") }
+                    Cell(w) { ValueCell(values[row * 4 + col]) }
                 }
                 Cell(1f) { Txt("—", 13, color = Slate400) }
-                Cell(1f, last = true) { ValueCell(values, row * 4 + 3, editable, "0.00") }
+                Cell(1f, last = true) { ValueCell(values[row * 4 + 3]) }
             }
         }
     }
 }
 
 @Composable
-private fun ValueCell(values: MutableList<String>, index: Int, editable: Boolean, placeholder: String) {
-    if (editable) {
-        CellInput(values[index], { values[index] = it }, placeholder, 13, Modifier.fillMaxWidth(), TextAlign.Center, FontWeight.Medium)
-    } else {
-        Txt(values[index], 13, weight = FontWeight.Medium, color = Ink)
-    }
+private fun ValueCell(value: String) {
+    Txt(value, 13, weight = FontWeight.Medium, color = Ink)
 }
 
 @Composable
@@ -436,34 +340,6 @@ private fun RowScope.Cell(
         ) { content() }
         if (!last) Box(Modifier.width(1.dp).fillMaxHeight().background(TableBorder))
     }
-}
-
-@Composable
-private fun CellInput(
-    value: String,
-    onChange: (String) -> Unit,
-    placeholder: String,
-    size: Int,
-    modifier: Modifier,
-    align: TextAlign,
-    weight: FontWeight,
-    singleLine: Boolean = true,
-) {
-    BasicTextField(
-        value = value,
-        onValueChange = onChange,
-        singleLine = singleLine,
-        modifier = modifier,
-        cursorBrush = SolidColor(Electric),
-        keyboardOptions = KeyboardOptions(keyboardType = if (singleLine) KeyboardType.Text else KeyboardType.Text),
-        textStyle = TextStyle(fontFamily = Jakarta, fontSize = size.sp, fontWeight = weight, color = Ink, textAlign = align),
-        decorationBox = { inner ->
-            Box(contentAlignment = if (align == TextAlign.Start) Alignment.CenterStart else Alignment.Center) {
-                if (value.isEmpty()) Txt(placeholder, size, weight = weight, color = Slate400, align = align)
-                inner()
-            }
-        },
-    )
 }
 
 @Composable

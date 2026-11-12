@@ -47,6 +47,8 @@ data class SlotOption(
     val id: UUID?,
     val date: LocalDate,
     val time: LocalTime,
+    /** Duración del turno según la óptica (fin − inicio). */
+    val minutes: Long,
 ) {
     val label: String get() = time.format(DateTimeFormatter.ofPattern("HH:mm"))
 }
@@ -59,7 +61,6 @@ data class BookingUiState(
     val weekStart: LocalDate = LocalDate.now(STORE_ZONE).with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)),
     val selectedDate: LocalDate? = null,
     val selectedSlot: SlotOption? = null,
-    val reason: String = "",
     val session: PatientSession? = null,
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
@@ -132,8 +133,6 @@ class BookingViewModel @Inject constructor(
     }
 
     fun selectStore(index: Int) = _uiState.update { it.copy(selectedStoreIndex = index, errorMessage = null) }
-
-    fun onReasonChange(value: String) = _uiState.update { it.copy(reason = value) }
 
     fun goToStep(step: Int) = _uiState.update { it.copy(step = step, errorMessage = null) }
 
@@ -214,6 +213,7 @@ class BookingViewModel @Inject constructor(
 
     private fun toOption(slot: TimeSlot): SlotOption {
         val local = slot.startDateTime.atZone(zone)
-        return SlotOption(id = slot.id, date = local.toLocalDate(), time = local.toLocalTime())
+        val minutes = java.time.Duration.between(slot.startDateTime, slot.endDateTime).toMinutes()
+        return SlotOption(id = slot.id, date = local.toLocalDate(), time = local.toLocalTime(), minutes = minutes)
     }
 }

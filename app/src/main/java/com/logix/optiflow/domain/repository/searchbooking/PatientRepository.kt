@@ -31,6 +31,13 @@ interface PatientRepository {
 
     suspend fun getPatient(id: UUID): Result<Patient>
 
+    /** El paciente cambia su nombre, teléfono y fecha de nacimiento (`PATCH /patients/{id}`). */
+    suspend fun updateProfile(
+        name: String,
+        phone: String,
+        birthDate: String?,
+    ): Result<Patient>
+
     suspend fun getSession(): PatientSession?
 
     suspend fun clearSession()

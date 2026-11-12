@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
@@ -31,8 +30,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -61,7 +58,6 @@ import com.logix.optiflow.presentation.shared.components.card
 import com.logix.optiflow.presentation.shared.components.tap
 import com.logix.optiflow.presentation.theme.DeepNavy
 import com.logix.optiflow.presentation.theme.Electric
-import com.logix.optiflow.presentation.theme.Jakarta
 import com.logix.optiflow.presentation.theme.Lavender
 import com.logix.optiflow.presentation.theme.NavyBlue
 import com.logix.optiflow.presentation.theme.SkyTint
@@ -290,7 +286,8 @@ private fun ColumnScope.DateStep(state: BookingUiState, vm: BookingViewModel) {
         IconTile(R.drawable.lucide_ic_chart_pie, Lavender, Electric, size = 40.dp, iconSize = 20.dp, radius = 12.dp)
         HSpace(14.dp)
         Column {
-            Txt("Duración aproximada: 45 min", 13, weight = FontWeight.Bold, color = DeepNavy)
+            val minutes = (state.selectedSlot ?: state.slotsForDate.firstOrNull())?.minutes
+            Txt(minutes?.let { "Duración aproximada: $it min" } ?: "Duración según el horario", 13, weight = FontWeight.Bold, color = DeepNavy)
             Txt("Llega 10 minutos antes de tu cita.", 12, color = Slate500)
         }
     }
@@ -393,32 +390,9 @@ private fun ColumnScope.ConfirmStep(state: BookingUiState, vm: BookingViewModel,
         Divider(Lavender)
         ConfirmRow(R.drawable.lucide_ic_user_round, "Paciente", state.patientName)
         Divider(Lavender)
-        ConfirmRow(R.drawable.lucide_ic_chart_pie, "Duración", "45 minutos")
+        ConfirmRow(R.drawable.lucide_ic_chart_pie, "Duración", state.selectedSlot?.let { "${it.minutes} minutos" } ?: "—")
     }
     VSpace(22.dp)
-    Txt("Motivo de consulta", 14, weight = FontWeight.Bold, color = DeepNavy)
-    Txt("Opcional", 12, color = Slate400)
-    VSpace(10.dp)
-    BasicTextField(
-        value = state.reason,
-        onValueChange = vm::onReasonChange,
-        cursorBrush = SolidColor(Electric),
-        textStyle = TextStyle(fontFamily = Jakarta, fontSize = 13.sp, color = DeepNavy),
-        decorationBox = { inner ->
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(44.dp)
-                    .card(radius = 14.dp, border = Lavender)
-                    .padding(horizontal = 16.dp),
-                contentAlignment = Alignment.CenterStart,
-            ) {
-                if (state.reason.isEmpty()) Txt("Cuéntanos brevemente qué necesitas...", 13, color = Slate400)
-                inner()
-            }
-        },
-    )
-    VSpace(12.dp)
     ErrorBanner(state.errorMessage)
     VSpace(10.dp)
     SolidButton(
@@ -495,7 +469,7 @@ private fun ColumnScope.DoneStep(state: BookingUiState, onAppointments: () -> Un
             val date = slot?.date
             Txt(date?.format(DateTimeFormatter.ofPattern("EEE", es))?.replace(".", "")?.uppercase(es) ?: "", 10, weight = FontWeight.Bold, color = Slate500)
             Txt("${date?.dayOfMonth ?: ""}", 24, weight = FontWeight.ExtraBold, color = Ink)
-            Txt(date?.format(DateTimeFormatter.ofPattern("MMMM", es))?.uppercase(es) ?: "", 10, weight = FontWeight.Bold, color = Slate500)
+            Txt(date?.format(DateTimeFormatter.ofPattern("MMM", es))?.replace(".", "")?.uppercase(es) ?: "", 10, weight = FontWeight.Bold, color = Slate500)
         }
         HSpace(12.dp)
         Canvas(Modifier.width(1.dp).height(56.dp)) {

@@ -46,7 +46,6 @@ import com.logix.optiflow.presentation.shared.OfflineViewModel
 import com.logix.optiflow.presentation.shared.components.HSpace
 import com.logix.optiflow.presentation.shared.components.LIcon
 import com.logix.optiflow.presentation.shared.components.StaffBackTopBar
-import com.logix.optiflow.presentation.shared.components.StaffCircleAction
 import com.logix.optiflow.presentation.shared.components.Txt
 import com.logix.optiflow.presentation.shared.components.VSpace
 import com.logix.optiflow.presentation.shared.components.tap
@@ -186,7 +185,8 @@ private fun parseBirthDate(text: String): String? =
 
 @Composable
 fun NewAppointmentScreen(nav: NavController, patientId: String? = null) {
-    val staff by staffViewModel().uiState.collectAsState()
+    val staffVm = staffViewModel()
+    val staff by staffVm.uiState.collectAsState()
     val vm: NewAppointmentViewModel = hiltViewModel()
     val state by vm.uiState.collectAsState()
     val context = LocalContext.current
@@ -195,6 +195,8 @@ fun NewAppointmentScreen(nav: NavController, patientId: String? = null) {
     LaunchedEffect(state.booked) {
         if (state.booked) {
             Toast.makeText(context, "Cita agendada.", Toast.LENGTH_SHORT).show()
+            // La agenda muestra el día de la cita recién agendada.
+            state.day?.let { staffVm.refreshAgenda(it) }
             nav.popBackStack()
         }
     }
@@ -328,9 +330,7 @@ fun StaffPatientRecordScreen(nav: NavController, id: String) {
         tab = null,
         showBottomBar = false,
         topBar = {
-            StaffBackTopBar("Ficha del Paciente", onBack = { nav.popBackStack() }) {
-                StaffCircleAction(R.drawable.lucide_ic_ellipsis) {}
-            }
+            StaffBackTopBar("Ficha del Paciente", onBack = { nav.popBackStack() })
         },
     ) {
         VSpace(16.dp)

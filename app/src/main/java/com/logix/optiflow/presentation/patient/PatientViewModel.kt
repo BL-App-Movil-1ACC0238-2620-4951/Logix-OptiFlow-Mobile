@@ -329,10 +329,6 @@ class PatientViewModel @Inject constructor(
         }
     }
 
-    fun savePrescription(updated: PrescriptionUi) {
-        _uiState.update { it.copy(prescription = updated) }
-    }
-
     fun clearSession(onDone: () -> Unit) {
         viewModelScope.launch {
             patientRepository.clearSession()
