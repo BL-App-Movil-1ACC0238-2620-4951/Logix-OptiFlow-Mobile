@@ -121,7 +121,6 @@ data class PrescriptionUi(
     val cylinderOI: String,
     val axisOI: String,
     val additionOI: String,
-    val pupillaryDistance: String,
     val diagnoses: List<String>,
     val observations: String,
 )
@@ -440,7 +439,6 @@ class PatientViewModel @Inject constructor(
         val date = examinationDate ?: Instant.now()
         return PrescriptionUi(
             patientName = name,
-            pupillaryDistance = "—",
             diagnoses = emptyList(),
             date = DateTimeFormatter.ofPattern("dd/MM/yyyy").withZone(zone).format(date),
             issuedLabel = "Emitida el " + DateTimeFormatter.ofPattern("d MMM yyyy", es).withZone(zone).format(date),

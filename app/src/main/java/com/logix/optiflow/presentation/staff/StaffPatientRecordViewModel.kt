@@ -6,7 +6,9 @@ import androidx.lifecycle.viewModelScope
 import com.logix.optiflow.domain.model.STORE_ZONE
 import com.logix.optiflow.domain.model.clinical.OpticalPrescription
 import com.logix.optiflow.domain.model.clinical.SaleStatus
+import com.logix.optiflow.data.remote.toUserMessage
 import com.logix.optiflow.domain.model.production.WorkOrderStatus
+import com.logix.optiflow.domain.repository.searchbooking.AppointmentRepository
 import com.logix.optiflow.domain.usecase.clinical.GetPatientClinicalRecordsUseCase
 import com.logix.optiflow.domain.usecase.clinical.GetPatientSalesUseCase
 import com.logix.optiflow.domain.usecase.clinical.GetQuotationUseCase
@@ -37,6 +39,7 @@ data class StaffPrescriptionUi(
 
 data class StaffNextAppointmentUi(
     val appointmentId: String,
+    val date: LocalDate,
     val day: String,
     val month: String,
     val statusLabel: String,
@@ -70,6 +73,7 @@ data class StaffPatientRecordUiState(
     val nextAppointment: StaffNextAppointmentUi? = null,
     val lensOrder: StaffLensOrderUi? = null,
     val openSales: List<StaffOpenSaleUi> = emptyList(),
+    val isCancelling: Boolean = false,
 )
 
 /**
@@ -84,6 +88,7 @@ class StaffPatientRecordViewModel @Inject constructor(
     private val getWorkOrders: GetWorkOrdersUseCase,
     private val getPatientSales: GetPatientSalesUseCase,
     private val getQuotation: GetQuotationUseCase,
+    private val appointmentRepository: AppointmentRepository,
 ) : ViewModel() {
 
     private val patientId: UUID? =
@@ -148,6 +153,7 @@ class StaffPatientRecordViewModel @Inject constructor(
                         val start = appointment.startDateTime.atZone(STORE_ZONE)
                         StaffNextAppointmentUi(
                             appointmentId = appointment.id.toString(),
+                            date = start.toLocalDate(),
                             day = start.dayOfMonth.toString(),
                             month = MONTH_FORMAT.format(start).replace(".", "").uppercase(ES),
                             statusLabel = if (appointment.status == "PENDING") "Pendiente" else "Confirmada",
@@ -157,6 +163,24 @@ class StaffPatientRecordViewModel @Inject constructor(
                     },
                 )
             }
+        }
+    }
+
+    /** Cancela la próxima cita con `PATCH /appointments/{id}/status` y libera su horario. */
+    fun cancelNextAppointment(onResult: (date: LocalDate?, error: String?) -> Unit) {
+        val next = _uiState.value.nextAppointment ?: return
+        if (_uiState.value.isCancelling) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isCancelling = true) }
+            appointmentRepository.cancelAppointment(UUID.fromString(next.appointmentId))
+                .onSuccess {
+                    _uiState.update { it.copy(isCancelling = false) }
+                    refresh()
+                    onResult(next.date, null)
+                }.onFailure { e ->
+                    _uiState.update { it.copy(isCancelling = false) }
+                    onResult(null, e.toUserMessage())
+                }
         }
     }
 
