@@ -11,7 +11,6 @@ val SkyTint = Color(0xFFD8E8FF)
 val DeepNavy = Color(0xFF1B3162)
 val White = Color(0xFFFFFFFF)
 val MintWhite = Color(0xFFF9FFFE)
-val IceBlue = Color(0xFFD9EAF9)
 val Navy75 = Color(0xFF1D3C75)
 
 // Superficies de la app paciente

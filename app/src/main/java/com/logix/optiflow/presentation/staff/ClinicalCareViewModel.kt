@@ -165,8 +165,6 @@ class ClinicalCareViewModel @Inject constructor(
 
     fun onPrescriptionChange(form: PrescriptionForm) = _uiState.update { it.copy(prescription = form) }
 
-    fun dismissError() = _uiState.update { it.copy(errorMessage = null) }
-
     /** Vuelve al paso anterior para revisar; el examen ya registrado no se puede volver a enviar. */
     fun back(): Boolean {
         val step = _uiState.value.step
