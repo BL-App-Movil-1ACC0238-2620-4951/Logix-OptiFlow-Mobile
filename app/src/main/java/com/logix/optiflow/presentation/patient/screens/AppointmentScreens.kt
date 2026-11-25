@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
@@ -69,6 +70,7 @@ import com.logix.optiflow.presentation.shared.components.VSpace
 import com.logix.optiflow.presentation.shared.components.card
 import com.logix.optiflow.presentation.shared.components.tap
 import com.logix.optiflow.presentation.theme.DeepNavy
+import com.logix.optiflow.presentation.theme.ErrorRed
 import com.logix.optiflow.presentation.theme.Electric
 import com.logix.optiflow.presentation.theme.InfoBanner
 import com.logix.optiflow.presentation.theme.Lavender
@@ -210,6 +212,27 @@ fun AppointmentDetailScreen(nav: NavController, id: String) {
         return
     }
     val context = LocalContext.current
+    var confirmCancel by remember { mutableStateOf(false) }
+
+    if (confirmCancel) {
+        AlertDialog(
+            onDismissRequest = { confirmCancel = false },
+            title = { Txt("¿Cancelar la cita?", 18, weight = FontWeight.Bold, color = DeepNavy) },
+            text = { Txt("Se liberará tu horario en ${appointment.storeName}. Si la necesitas después, tendrás que reservar otra.", 14, color = Slate500) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmCancel = false
+                    vm.cancelAppointment(appointment.id)
+                    Toast.makeText(context, "Cita cancelada", Toast.LENGTH_SHORT).show()
+                    nav.popBackStack()
+                }) { Txt("Sí, cancelar", 14, weight = FontWeight.Bold, color = ErrorRed) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmCancel = false }) { Txt("No", 14, color = Slate500) }
+            },
+            containerColor = White,
+        )
+    }
 
     PatientScreen(
         nav = nav,
@@ -317,11 +340,7 @@ fun AppointmentDetailScreen(nav: NavController, id: String) {
                     color = Electric,
                     align = TextAlign.Center,
                     modifier =
-                        Modifier.fillMaxWidth().padding(vertical = 8.dp).tap {
-                            vm.cancelAppointment(appointment.id)
-                            Toast.makeText(context, "Cita cancelada", Toast.LENGTH_SHORT).show()
-                            nav.popBackStack()
-                        },
+                        Modifier.fillMaxWidth().padding(vertical = 8.dp).tap { confirmCancel = true },
                 )
             }
         }
@@ -418,7 +437,6 @@ private fun DetailLine(icon: Int, label: String, value: String, extra: String?) 
 }
 
 private val services = listOf("Examen de vista completo", "Control de lentes", "Adaptación de lentes de contacto")
-private val rescheduleTimes = listOf("09:00", "10:30", "12:00", "14:30", "16:00", "17:00")
 private val FieldBorder = Color(0xFFA8BCD9)
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -428,8 +446,8 @@ fun RescheduleScreen(nav: NavController, id: String) {
     val state by vm.uiState.collectAsState()
     val context = LocalContext.current
     val appointment = vm.appointment(id)
-    // Con una cita real y ópticas del API se usan los horarios disponibles; si no, la vista de demostración.
-    val live = appointment?.fromApi == true && state.stores.isNotEmpty()
+    // Sin ópticas del API no hay horarios reales que elegir, así que no se puede reprogramar.
+    val live =appointment?.fromApi == true && state.stores.isNotEmpty()
     var service by remember { mutableIntStateOf(0) }
     var store by remember {
         mutableIntStateOf(state.stores.indexOfFirst { it.id == appointment?.storeId }.coerceAtLeast(0))
@@ -439,7 +457,7 @@ fun RescheduleScreen(nav: NavController, id: String) {
     var showPicker by remember { mutableStateOf(false) }
     var slots by remember { mutableStateOf<List<TimeSlot>>(emptyList()) }
     var saving by remember { mutableStateOf(false) }
-    val storeNames = state.stores.map { it.name }.ifEmpty { listOf("Sucursal Centro", "Sucursal Norte", "Sucursal Providencia") }
+    val storeNames = state.stores.map { it.name }
     LaunchedEffect(live, store) {
         if (live) {
             slots = vm.availableSlots(state.stores[store.coerceAtMost(state.stores.lastIndex)].id)
@@ -454,7 +472,7 @@ fun RescheduleScreen(nav: NavController, id: String) {
         if (live) {
             daySlots.map { DateTimeFormatter.ofPattern("HH:mm").withZone(STORE_ZONE).format(it.startDateTime) }
         } else {
-            rescheduleTimes
+            emptyList()
         }
 
     PatientScreen(
@@ -477,9 +495,13 @@ fun RescheduleScreen(nav: NavController, id: String) {
                 Dropdown(services, service) { service = it }
                 VSpace(18.dp)
                 FormLabel("Óptica")
-                Dropdown(storeNames, store.coerceAtMost(storeNames.lastIndex)) {
-                    store = it
-                    time = -1
+                if (storeNames.isEmpty()) {
+                    Txt("No se pudieron cargar las ópticas. Revisa tu conexión e intenta de nuevo.", 13, color = Slate500)
+                } else {
+                    Dropdown(storeNames, store.coerceAtMost(storeNames.lastIndex)) {
+                        store = it
+                        time = -1
+                    }
                 }
                 VSpace(18.dp)
                 FormLabel("Fecha")
@@ -548,11 +570,8 @@ fun RescheduleScreen(nav: NavController, id: String) {
                     onClick = {
                         val slot = daySlots.getOrNull(time)
                         when {
+                            !live -> Toast.makeText(context, "No se pudieron cargar las ópticas. Intenta de nuevo.", Toast.LENGTH_SHORT).show()
                             date == null -> Toast.makeText(context, "Selecciona una fecha", Toast.LENGTH_SHORT).show()
-                            !live -> {
-                                Toast.makeText(context, "Solicitud de reprogramación enviada", Toast.LENGTH_SHORT).show()
-                                nav.popBackStack(Routes.P_APPOINTMENTS, inclusive = false)
-                            }
                             slot == null -> Toast.makeText(context, "Selecciona un horario", Toast.LENGTH_SHORT).show()
                             !saving -> {
                                 saving = true
