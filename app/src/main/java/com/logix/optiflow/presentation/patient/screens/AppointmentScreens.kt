@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
@@ -69,6 +70,7 @@ import com.logix.optiflow.presentation.shared.components.VSpace
 import com.logix.optiflow.presentation.shared.components.card
 import com.logix.optiflow.presentation.shared.components.tap
 import com.logix.optiflow.presentation.theme.DeepNavy
+import com.logix.optiflow.presentation.theme.ErrorRed
 import com.logix.optiflow.presentation.theme.Electric
 import com.logix.optiflow.presentation.theme.InfoBanner
 import com.logix.optiflow.presentation.theme.Lavender
@@ -210,6 +212,27 @@ fun AppointmentDetailScreen(nav: NavController, id: String) {
         return
     }
     val context = LocalContext.current
+    var confirmCancel by remember { mutableStateOf(false) }
+
+    if (confirmCancel) {
+        AlertDialog(
+            onDismissRequest = { confirmCancel = false },
+            title = { Txt("¿Cancelar la cita?", 18, weight = FontWeight.Bold, color = DeepNavy) },
+            text = { Txt("Se liberará tu horario en ${appointment.storeName}. Si la necesitas después, tendrás que reservar otra.", 14, color = Slate500) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmCancel = false
+                    vm.cancelAppointment(appointment.id)
+                    Toast.makeText(context, "Cita cancelada", Toast.LENGTH_SHORT).show()
+                    nav.popBackStack()
+                }) { Txt("Sí, cancelar", 14, weight = FontWeight.Bold, color = ErrorRed) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmCancel = false }) { Txt("No", 14, color = Slate500) }
+            },
+            containerColor = White,
+        )
+    }
 
     PatientScreen(
         nav = nav,
@@ -317,11 +340,7 @@ fun AppointmentDetailScreen(nav: NavController, id: String) {
                     color = Electric,
                     align = TextAlign.Center,
                     modifier =
-                        Modifier.fillMaxWidth().padding(vertical = 8.dp).tap {
-                            vm.cancelAppointment(appointment.id)
-                            Toast.makeText(context, "Cita cancelada", Toast.LENGTH_SHORT).show()
-                            nav.popBackStack()
-                        },
+                        Modifier.fillMaxWidth().padding(vertical = 8.dp).tap { confirmCancel = true },
                 )
             }
         }
