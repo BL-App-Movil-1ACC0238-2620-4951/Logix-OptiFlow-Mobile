@@ -542,10 +542,11 @@ private fun EyeBox(label: String, value: String, detail: String, modifier: Modif
 }
 
 @Composable
-fun ProductionScreen(nav: NavController) {
+fun ProductionScreen(nav: NavController, initialStage: String? = null) {
     val vm = staffViewModel()
     val state by vm.uiState.collectAsState()
-    var stage by rememberSaveable { mutableIntStateOf(ProductionStage.IN_WORKSHOP.ordinal) }
+    val firstStage = ProductionStage.entries.firstOrNull { it.name == initialStage } ?: ProductionStage.IN_WORKSHOP
+    var stage by rememberSaveable { mutableIntStateOf(firstStage.ordinal) }
     val orders = state.productionOrders.filter { it.stage.ordinal == stage }
     val stageColors = listOf(Color(0xFFAAB6DD), Color(0xFF1E3D79), White, White, White)
 

@@ -190,6 +190,7 @@ fun OptiFlowNavHost(
         composable(Routes.S_CLINICAL) { ClinicalCareScreen(navController, it.arg("patientId")) }
         composable(Routes.S_WORK_ORDER) { WorkOrderScreen(navController) }
         composable(Routes.S_PRODUCTION) { ProductionScreen(navController) }
+        composable(Routes.S_PRODUCTION_STAGE) { ProductionScreen(navController, it.arguments?.getString("stage")) }
         composable(Routes.S_QUOTE) { QuotePatientPickerScreen(navController) }
         composable(Routes.S_QUOTE_PATIENT) { QuoteScreen(navController, it.arg("patientId")) }
         composable(Routes.S_SALE) { SaleScreen(navController, it.arg("patientId")) }
