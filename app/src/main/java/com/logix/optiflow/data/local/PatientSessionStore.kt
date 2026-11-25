@@ -12,7 +12,6 @@ import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 
 private val Context.patientSessionDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "patient_session",
@@ -59,18 +58,6 @@ class PatientSessionStore @Inject constructor(
     suspend fun clear() {
         dataStore.edit { it.clear() }
     }
-
-    fun observeSession() =
-        dataStore.data.map { snapshot ->
-            val patientId = snapshot[Keys.PATIENT_ID] ?: return@map null
-            PatientSession(
-                patientId = UUID.fromString(patientId),
-                token = snapshot[Keys.TOKEN],
-                name = snapshot[Keys.PATIENT_NAME].orEmpty(),
-                email = snapshot[Keys.PATIENT_EMAIL].orEmpty(),
-                role = snapshot[Keys.ROLE] ?: PatientSession.PATIENT_ROLE,
-            )
-        }
 
     private object Keys {
         val PATIENT_ID = stringPreferencesKey("patient_id")
