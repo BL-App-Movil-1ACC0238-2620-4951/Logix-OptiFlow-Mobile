@@ -418,7 +418,6 @@ private fun DetailLine(icon: Int, label: String, value: String, extra: String?) 
 }
 
 private val services = listOf("Examen de vista completo", "Control de lentes", "Adaptación de lentes de contacto")
-private val rescheduleTimes = listOf("09:00", "10:30", "12:00", "14:30", "16:00", "17:00")
 private val FieldBorder = Color(0xFFA8BCD9)
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -428,8 +427,8 @@ fun RescheduleScreen(nav: NavController, id: String) {
     val state by vm.uiState.collectAsState()
     val context = LocalContext.current
     val appointment = vm.appointment(id)
-    // Con una cita real y ópticas del API se usan los horarios disponibles; si no, la vista de demostración.
-    val live = appointment?.fromApi == true && state.stores.isNotEmpty()
+    // Sin ópticas del API no hay horarios reales que elegir, así que no se puede reprogramar.
+    val live =appointment?.fromApi == true && state.stores.isNotEmpty()
     var service by remember { mutableIntStateOf(0) }
     var store by remember {
         mutableIntStateOf(state.stores.indexOfFirst { it.id == appointment?.storeId }.coerceAtLeast(0))
@@ -439,7 +438,7 @@ fun RescheduleScreen(nav: NavController, id: String) {
     var showPicker by remember { mutableStateOf(false) }
     var slots by remember { mutableStateOf<List<TimeSlot>>(emptyList()) }
     var saving by remember { mutableStateOf(false) }
-    val storeNames = state.stores.map { it.name }.ifEmpty { listOf("Sucursal Centro", "Sucursal Norte", "Sucursal Providencia") }
+    val storeNames = state.stores.map { it.name }
     LaunchedEffect(live, store) {
         if (live) {
             slots = vm.availableSlots(state.stores[store.coerceAtMost(state.stores.lastIndex)].id)
@@ -454,7 +453,7 @@ fun RescheduleScreen(nav: NavController, id: String) {
         if (live) {
             daySlots.map { DateTimeFormatter.ofPattern("HH:mm").withZone(STORE_ZONE).format(it.startDateTime) }
         } else {
-            rescheduleTimes
+            emptyList()
         }
 
     PatientScreen(
@@ -477,9 +476,13 @@ fun RescheduleScreen(nav: NavController, id: String) {
                 Dropdown(services, service) { service = it }
                 VSpace(18.dp)
                 FormLabel("Óptica")
-                Dropdown(storeNames, store.coerceAtMost(storeNames.lastIndex)) {
-                    store = it
-                    time = -1
+                if (storeNames.isEmpty()) {
+                    Txt("No se pudieron cargar las ópticas. Revisa tu conexión e intenta de nuevo.", 13, color = Slate500)
+                } else {
+                    Dropdown(storeNames, store.coerceAtMost(storeNames.lastIndex)) {
+                        store = it
+                        time = -1
+                    }
                 }
                 VSpace(18.dp)
                 FormLabel("Fecha")
@@ -548,11 +551,8 @@ fun RescheduleScreen(nav: NavController, id: String) {
                     onClick = {
                         val slot = daySlots.getOrNull(time)
                         when {
+                            !live -> Toast.makeText(context, "No se pudieron cargar las ópticas. Intenta de nuevo.", Toast.LENGTH_SHORT).show()
                             date == null -> Toast.makeText(context, "Selecciona una fecha", Toast.LENGTH_SHORT).show()
-                            !live -> {
-                                Toast.makeText(context, "Solicitud de reprogramación enviada", Toast.LENGTH_SHORT).show()
-                                nav.popBackStack(Routes.P_APPOINTMENTS, inclusive = false)
-                            }
                             slot == null -> Toast.makeText(context, "Selecciona un horario", Toast.LENGTH_SHORT).show()
                             !saving -> {
                                 saving = true
