@@ -648,7 +648,7 @@ fun AlertsScreen(nav: NavController) {
                     if (ready == 1) "1 pedido espera ser entregado." else "$ready pedidos esperan ser entregados.",
                     "Ver pedidos",
                     R.drawable.lucide_ic_box,
-                    Routes.S_PRODUCTION,
+                    Routes.production(ProductionStage.READY_FOR_DELIVERY.name),
                 ).takeIf { ready > 0 },
             )
     val alerts =

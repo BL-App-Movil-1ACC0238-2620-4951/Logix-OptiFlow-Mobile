@@ -53,6 +53,7 @@ object Routes {
     const val S_CLINICAL = "s/clinical/{appointmentId}/{patientId}"
     const val S_WORK_ORDER = "s/work-order/{id}"
     const val S_PRODUCTION = "s/production"
+    const val S_PRODUCTION_STAGE = "s/production/{stage}"
     const val S_QUOTE = "s/quote"
     const val S_QUOTE_PATIENT = "s/quote/{patientId}"
     const val S_SALE = "s/sale/{saleId}/{patientId}"
@@ -69,6 +70,7 @@ object Routes {
 
     fun staffPatient(id: String) = "s/patient/$id"
     fun workOrder(id: String) = "s/work-order/$id"
+    fun production(stage: String) = "s/production/$stage"
     fun quote(patientId: String) = "s/quote/$patientId"
     fun sale(saleId: String, patientId: String) = "s/sale/$saleId/$patientId"
     fun clinicalCare(appointmentId: String, patientId: String) = "s/clinical/$appointmentId/$patientId"
