@@ -99,6 +99,7 @@ import com.logix.optiflow.presentation.theme.Lavender
 import com.logix.optiflow.presentation.theme.ScreenBg
 import com.logix.optiflow.presentation.theme.Slate300
 import com.logix.optiflow.presentation.theme.Slate400
+import com.logix.optiflow.presentation.theme.Slate500
 import com.logix.optiflow.presentation.theme.StaffAccent
 import com.logix.optiflow.presentation.theme.StaffBorder
 import com.logix.optiflow.presentation.theme.StaffChip
@@ -670,34 +671,33 @@ fun AlertsScreen(nav: NavController) {
                 StaffChip(label, filter == index) { filter = index }
             }
         }
-        VSpace(16.dp)
+        VSpace(20.dp)
+        StaffSectionTitle("Pendientes · ${alerts.size}")
+        VSpace(12.dp)
         when {
             state.isLoading -> Txt("Cargando…", 12, color = Slate400, family = Inter)
             state.errorMessage != null -> Txt(state.errorMessage.orEmpty(), 12, color = Slate400, family = Inter)
             alerts.isEmpty() -> Txt("Sin alertas por ahora.", 12, color = Slate400, family = Inter)
         }
         alerts.forEach { alert ->
-            Column(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
-                Row {
-                    StaffIconTile(alert.icon, size = 34.dp, background = StaffSoft, radius = 10.dp)
-                    HSpace(14.dp)
-                    Column(Modifier.weight(1f)) {
-                        Txt(alert.title, 12, color = StaffInk, family = Inter)
-                        VSpace(8.dp)
-                        Txt(alert.message, 10, color = StaffIndigoText, family = Inter)
-                    }
+            Row(
+                Modifier.fillMaxWidth().staffCard().tap { nav.navigate(alert.route) }.padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                StaffIconTile(alert.icon, size = 40.dp, background = StaffSoft, radius = 12.dp)
+                HSpace(12.dp)
+                Column(Modifier.weight(1f)) {
+                    Txt(alert.title, 13, weight = FontWeight.Bold, color = StaffInk, family = Inter)
+                    VSpace(2.dp)
+                    Txt(alert.message, 11, color = Slate500, family = Inter)
+                    VSpace(6.dp)
+                    Txt(alert.action, 11, color = StaffAccent, family = Inter)
                 }
-                VSpace(8.dp)
-                Row(
-                    Modifier.align(Alignment.End).padding(end = 120.dp).tap { nav.navigate(alert.route) },
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Txt(alert.action, 9, color = StaffAccent, family = Inter)
-                    HSpace(4.dp)
-                    LIcon(R.drawable.lucide_ic_chevron_right, StaffAccent, 14.dp)
-                }
+                HSpace(8.dp)
+                LIcon(R.drawable.lucide_ic_chevron_right, StaffInk, 18.dp)
             }
-            Divider(StaffBorder)
+            VSpace(10.dp)
         }
+        VSpace(24.dp)
     }
 }
